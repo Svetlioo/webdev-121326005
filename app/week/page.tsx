@@ -56,6 +56,11 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
             <Link href="/schedule" className="text-muted-foreground hover:text-foreground">
               Цялото разписание
             </Link>
+            {publisher && (
+              <Link href="/imports" className="text-muted-foreground hover:text-foreground">
+                Внасяне
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-1">
             <LinkGoogleButton />
