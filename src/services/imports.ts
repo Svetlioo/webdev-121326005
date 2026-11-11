@@ -71,13 +71,13 @@ export function toDraft(output: unknown): DraftClass[] {
 
 export type StartImport = { sourceUrl?: string; image?: Buffer; imageType?: string; instructions?: string };
 
-/** Queues an import of a timetable into a plan, from a page or a photo. Owner or admin only;
+/** Queues an import of a timetable into a plan, from a page, a photo or both. Owner or admin only;
  *  the model runs later, in the worker. */
 export async function startImport(actor: Actor | null, planId: number, input: StartImport): Promise<Import> {
   const { actor: me } = await editablePlan(actor, planId);
   const url = input.sourceUrl?.trim() || null;
   const image = input.image?.length ? input.image : null;
-  if (Boolean(url) === Boolean(image)) throw new AppError(400, 'Посочете или адрес на страница, или снимка.');
+  if (!url && !image) throw new AppError(400, 'Посочете адрес на страница, снимка или и двете.');
   if (url && !/^https?:\/\/\S+$/.test(url)) throw new AppError(400, 'Адресът трябва да започва с http:// или https://.');
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
@@ -135,12 +135,21 @@ export async function retryImport(actor: Actor | null, id: number): Promise<void
   await updateImport(id, 'queued');
 }
 
-/** The text of a schedule page, without markup and without the student lists ("Списъчен състав"). */
+/**
+ * The text of a schedule page, without markup and without the student lists ("Списъчен състав").
+ * Menus go first, because a tab called "Списъчен състав" can come before the timetable; then the
+ * page is cut where the student list starts: its section (an id with "student"), or its heading.
+ */
 export function pageText(html: string): string {
-  const text = html
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+  let page = html.replace(/<(script|style|nav)\b[\s\S]*?<\/\1>/gi, ' ');
+  const section = page.search(/<[^>]+\bid="[^"]*student/i);
+  if (section !== -1) page = page.slice(0, section);
+  const text = page
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&[bl]dquo;/g, '"')
+    .replace(/&[nm]dash;/g, '–')
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ');
   const lists = text.search(/списъчен състав/i);
   return (lists === -1 ? text : text.slice(0, lists)).slice(0, 30_000);

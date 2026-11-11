@@ -8,7 +8,7 @@ export type Plan = {
   ownerId: string;
   ownerEmail: string;
   name: string;
-  groupName: string;
+  groups: string[];
   windows: TimeWindow[];
   windowsFrom: 'parser' | 'model';
   modelStatus: ModelStatus;
@@ -18,16 +18,21 @@ export type Source = { id: number; text: string | null; imageType: string | null
 export type Message = { id: number; role: 'user' | 'assistant'; content: string };
 export type Share = { userId: string; email: string };
 
-const PLAN = `p.id::int AS id, p.owner_id AS "ownerId", u.email AS "ownerEmail", p.name, p.group_name AS "groupName",
+const PLAN = `p.id::int AS id, p.owner_id AS "ownerId", u.email AS "ownerEmail", p.name, p.groups,
   p.windows, p.windows_from AS "windowsFrom", p.model_status AS "modelStatus"`;
 
-export async function insertPlan(ownerId: string, name: string, groupName: string): Promise<number> {
-  const { rows } = await db().query('INSERT INTO plans (owner_id, name, group_name) VALUES ($1, $2, $3) RETURNING id::int AS id', [
+export async function insertPlan(ownerId: string, name: string, groups: string[]): Promise<number> {
+  const { rows } = await db().query('INSERT INTO plans (owner_id, name, groups) VALUES ($1, $2, $3) RETURNING id::int AS id', [
     ownerId,
     name,
-    groupName,
+    groups,
   ]);
   return rows[0].id;
+}
+
+/** The groups whose classes the plan follows. */
+export async function setGroups(id: number, groups: string[]): Promise<void> {
+  await db().query('UPDATE plans SET groups = $2 WHERE id = $1', [id, groups]);
 }
 
 export async function findPlan(id: number): Promise<Plan | null> {

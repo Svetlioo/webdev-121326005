@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 const WORK = 'Работя от 9:00 до 16:30 в делничните дни';
-const newPlan = () => createPlan(ana, { name: 'Зимен семестър', group: '222', fromSample: true });
+const newPlan = () => createPlan(ana, { name: 'Зимен семестър', groups: ['222'], fromSample: true });
 const label = (view: Awaited<ReturnType<typeof getPlan>>, course: string, day: number, startsAt: string) =>
   view.classes.find((c) => c.course === course && c.day === day && c.startsAt === startsAt)?.label;
 const model = (answer: () => Promise<unknown>): ModelClient => ({ readSchedule: vi.fn(), readPlan: vi.fn(answer) });
@@ -138,15 +138,15 @@ describe('my plan', () => {
   });
 
   test.each([
-    ['an empty name', { name: ' ', group: '222' }],
-    ['a group that is not a TU group number', { name: 'План', group: 'група 5' }],
+    ['an empty name', { name: ' ', groups: ['222'] }],
+    ['a group that is not a TU group number', { name: 'План', groups: ['група 5'] }],
   ])('a plan with %s gives 400', async (_name, input) => {
     await expect(createPlan(ana, input)).rejects.toMatchObject({ status: 400 });
     await expect(createPlan(null, input)).rejects.toMatchObject({ status: 401 });
   });
 
   test('a plan starts empty, or with the 19 classes of the sample timetable', async () => {
-    await createPlan(ana, { name: 'Празна', group: '221а' });
+    await createPlan(ana, { name: 'Празна', groups: ['221а'] });
     expect(db.entries).toHaveLength(0);
     await newPlan();
     expect(db.entries).toHaveLength(19);

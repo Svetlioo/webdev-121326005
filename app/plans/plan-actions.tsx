@@ -21,17 +21,17 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** A new plan: a name, a group, and whether to start from the sample timetable. Opens it once it exists. */
+/** A new plan: a name, and whether to start from the sample timetable. Opens it once it exists. */
 export function CreatePlanForm({ sampleTitle }: { sampleTitle: string }) {
   const router = useRouter();
   const { busy, error, run } = useAction();
   return (
     <form
-      className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end"
+      className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
-        const body = { name: form.get('name'), group: form.get('group'), fromSample: form.get('fromSample') === 'on' };
+        const body = { name: form.get('name'), fromSample: form.get('fromSample') === 'on' };
         run('/api/plans', json('POST', body), (created) => router.push(`/plans/${created.id}`));
       }}
     >
@@ -39,21 +39,47 @@ export function CreatePlanForm({ sampleTitle }: { sampleTitle: string }) {
         Име на програмата
         <Input name="name" required maxLength={100} placeholder="напр. Зимен семестър" />
       </label>
-      <label className="grid gap-1 text-sm">
-        Група
-        <Input name="group" required pattern="\d{3}[а-яА-Яa-zA-Z]?" placeholder="напр. 222" className="sm:w-28" />
-      </label>
       <Button type="submit" disabled={busy}>
         Създай програма
       </Button>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-3">
+      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
         <input type="checkbox" name="fromSample" />
         Започни от примерното разписание: {sampleTitle}
       </label>
-      <div className="sm:col-span-3">
+      <div className="sm:col-span-2">
         <Problem text={error} />
       </div>
     </form>
+  );
+}
+
+/** The groups whose classes the plan shows: checkboxes for the groups found in the timetable. */
+export function GroupPicker({ planId, groups, chosen, disabled }: { planId: number; groups: string[]; chosen: string[]; disabled: boolean }) {
+  const { busy, error, run } = useAction();
+  const [picked, setPicked] = useState(chosen);
+  const changed = picked.length !== chosen.length || picked.some((g) => !chosen.includes(g));
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-2">
+        {groups.map((g) => (
+          <label key={g} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm has-checked:border-foreground has-checked:bg-muted">
+            <input
+              type="checkbox"
+              checked={picked.includes(g)}
+              disabled={disabled || busy}
+              onChange={(e) => setPicked(e.target.checked ? [...picked, g] : picked.filter((x) => x !== g))}
+            />
+            {g}
+          </label>
+        ))}
+      </div>
+      {!disabled && changed && (
+        <Button size="sm" className="justify-self-start" disabled={busy} onClick={() => run(`/api/plans/${planId}`, json('PATCH', { groups: picked }))}>
+          Запази групите
+        </Button>
+      )}
+      <Problem text={error} />
+    </div>
   );
 }
 

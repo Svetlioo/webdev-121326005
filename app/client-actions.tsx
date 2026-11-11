@@ -54,7 +54,7 @@ export function ImportForm({ planId }: { planId: number }) {
         <Input name="url" type="url" placeholder="https://cs.fcst.bg/page.php?id=89" />
       </label>
       <label className="grid gap-1 text-sm">
-        или снимка на разписанието (PNG, JPEG, WebP)
+        и/или снимка на разписанието (PNG, JPEG, WebP)
         <Input name="photo" type="file" accept="image/png,image/jpeg,image/webp" />
       </label>
       <label className="grid gap-1 text-sm">

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { POST as messageRoute } from '../../app/api/plans/[id]/messages/route';
-import { DELETE as deletePlanRoute } from '../../app/api/plans/[id]/route';
+import { DELETE as deletePlanRoute, PATCH as groupsRoute } from '../../app/api/plans/[id]/route';
 import { POST as shareRoute } from '../../app/api/plans/[id]/shares/route';
 import { GET as imageRoute, DELETE as removeSourceRoute } from '../../app/api/plans/[id]/sources/[sourceId]/route';
 import { POST as sourceRoute } from '../../app/api/plans/[id]/sources/route';
@@ -21,7 +21,7 @@ vi.mock('../../src/data/plans');
 const ana = { id: 'ana', role: 'student' };
 const boris = { id: 'boris', role: 'student' };
 const as = (actor: typeof ana | null) => vi.mocked(getActor).mockResolvedValue(actor);
-const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', groupName: '222', windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const };
+const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', groups: ['222'], windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const };
 const req = (method: string, body?: unknown) =>
   new Request('http://localhost:3000/api/x', { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });
@@ -43,15 +43,15 @@ beforeEach(() => {
 });
 
 describe('plans over HTTP', () => {
-  test('POST /api/plans creates a plan (201), and refuses a group that is not a TU group number (400) or nobody signed in (401)', async () => {
+  test('POST /api/plans creates a plan (201), and refuses an empty name (400) or nobody signed in (401)', async () => {
     as(ana);
     vi.mocked(plans.insertPlan).mockResolvedValue(7);
-    const res = await createRoute(req('POST', { name: 'План', group: '222' }));
+    const res = await createRoute(req('POST', { name: 'План' }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: 7 });
-    expect((await createRoute(req('POST', { name: 'План', group: 'група 9' }))).status).toBe(400);
+    expect((await createRoute(req('POST', { name: ' ' }))).status).toBe(400);
     as(null);
-    expect((await createRoute(req('POST', { name: 'План', group: '222' }))).status).toBe(401);
+    expect((await createRoute(req('POST', { name: 'План' }))).status).toBe(401);
   });
 
   test('AC-19 a reader who posts a message or a source gets 403 and nothing is added', async () => {
@@ -98,6 +98,18 @@ describe('plans over HTTP', () => {
   test('a source upload from nobody signed in is refused with 401 before the upload is read', async () => {
     as(null);
     expect((await sourceRoute(form({ text: 'x' }), params({ id: '1' }))).status).toBe(401);
+  });
+});
+
+describe('PATCH /api/plans/:id (groups)', () => {
+  test('the owner chooses the groups (204); a group that is not a TU number is 400; a reader gets 403', async () => {
+    as(ana);
+    expect((await groupsRoute(req('PATCH', { groups: ['222', '221а'] }), params({ id: '1' }))).status).toBe(204);
+    expect(plans.setGroups).toHaveBeenCalledWith(1, ['222', '221а']);
+    expect((await groupsRoute(req('PATCH', { groups: ['група 9'] }), params({ id: '1' }))).status).toBe(400);
+    expect((await groupsRoute(req('PATCH', {}), params({ id: '1' }))).status).toBe(204);
+    as(boris);
+    expect((await groupsRoute(req('PATCH', { groups: ['222'] }), params({ id: '1' }))).status).toBe(403);
   });
 });
 

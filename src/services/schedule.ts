@@ -19,7 +19,7 @@ function checkWeek(week: number): void {
 }
 
 /** Does this group have this class in this week? Start week first, then odd/even weeks. */
-function attends(entry: Entry, group: string, week: number): boolean {
+export function attends(entry: Entry, group: string, week: number): boolean {
   const g = entry.groups.find((x) => x.name === group);
   if (!g || week < entry.startWeek) return false;
   return g.parity === 'all' || (g.parity === 'odd') === (week % 2 === 1);
@@ -34,13 +34,13 @@ export async function listClasses(actor: Actor | null, planId: number): Promise<
   return (await listEntries(planId)).sort(byDayAndTime);
 }
 
-/** What the plan's group has in one week, with the notes for that week. */
+/** What the plan's groups have in one week, with the notes for that week. A plan with no groups chosen yet has nothing. */
 export async function getWeek(actor: Actor | null, planId: number, week: number): Promise<WeekClass[]> {
   const { plan } = await readablePlan(actor, planId);
   checkWeek(week);
   const notes = await listNotes(planId);
   return (await listEntries(planId))
-    .filter((e) => attends(e, plan.groupName, week))
+    .filter((e) => plan.groups.some((g) => attends(e, g, week)))
     .sort(byDayAndTime)
     .map((e) => {
       const own = notes.filter((n) => n.entryId === e.id && (n.week === null || n.week === week));

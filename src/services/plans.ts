@@ -20,6 +20,7 @@ import {
   listSources,
   removeShare,
   saveWindows,
+  setGroups,
   type Message,
   type Plan,
   type Share,
@@ -64,18 +65,30 @@ export async function listMyPlans(actor: Actor | null): Promise<{ own: Plan[]; s
   return { own, shared, others: isAdmin(me) ? await listOtherPlans(me.id) : [] };
 }
 
-export type NewPlan = { name: string; group: string; fromSample?: boolean };
+export type NewPlan = { name: string; fromSample?: boolean; groups?: string[] };
 
-/** A new plan for the actor. It starts empty (the student imports their timetable) or from the sample timetable. */
+/** The groups a plan follows: TU group numbers, each once, at most 10. */
+function checkGroups(groups: string[]): string[] {
+  const clean = [...new Set(groups.map((g) => g.trim()))];
+  if (clean.length > 10 || !clean.every((g) => GROUP.test(g))) throw new AppError(400, 'Групите са номера като 222 или 221а.');
+  return clean;
+}
+
+/** A new plan for the actor. It starts empty (the student imports their timetable) or from the sample
+ *  timetable; the groups are usually chosen afterwards, from the groups in the timetable. */
 export async function createPlan(actor: Actor | null, input: NewPlan): Promise<number> {
   const me = requireActor(actor);
   const name = input.name.trim();
-  const group = input.group.trim();
   if (name.length < 1 || name.length > 100) throw new AppError(400, 'Името трябва да е между 1 и 100 знака.');
-  if (!GROUP.test(group)) throw new AppError(400, 'Групата е номер като 222 или 221а.');
-  const id = await insertPlan(me.id, name, group);
+  const id = await insertPlan(me.id, name, checkGroups(input.groups ?? []));
   if (input.fromSample) await insertEntries(id, await sampleTimetable());
   return id;
+}
+
+/** Chooses the groups whose classes the plan shows, such as one's own group and one more for a lab. Owner or admin. */
+export async function setPlanGroups(actor: Actor | null, id: number, groups: string[]): Promise<void> {
+  await editablePlan(actor, id);
+  await setGroups(id, checkGroups(groups));
 }
 
 /** Everything the plan page shows: sources, chat, shares (owner only) and the week with a label on every class. */

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Entry } from '../../src/data/entries';
-import { createPlan, sharePlan } from '../../src/services/plans';
+import { createPlan, setPlanGroups, sharePlan } from '../../src/services/plans';
 import { addNote, deleteClass, findFreeRooms, getWeek, listClasses, searchClasses } from '../../src/services/schedule';
 import { admin, ana, boris, installFakes, vera, type Store } from '../fakes';
 
@@ -15,7 +15,7 @@ let plan222: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
-  plan222 = await createPlan(ana, { name: 'Зима', group: '222', fromSample: true });
+  plan222 = await createPlan(ana, { name: 'Зима', groups: ['222'], fromSample: true });
 });
 
 const show = (classes: Entry[]) => classes.map((c) => `${c.course} ${c.type} ${c.day} ${c.startsAt}–${c.endsAt} ${c.room}`);
@@ -31,7 +31,7 @@ describe('the timetable of a plan', () => {
   });
 
   test('an empty plan has no classes until the student imports a timetable', async () => {
-    const empty = await createPlan(ana, { name: 'Празна', group: '222' });
+    const empty = await createPlan(ana, { name: 'Празна', groups: ['222'] });
     expect(await listClasses(ana, empty)).toEqual([]);
     expect(await getWeek(ana, empty, 3)).toEqual([]);
   });
@@ -44,10 +44,21 @@ describe('the timetable of a plan', () => {
   });
 
   test('AC-2 group 221а does not see the Wednesday ПИ lab in week 1, and sees it in room 1211 in week 3', async () => {
-    const plan221a = await createPlan(ana, { name: '221а', group: '221а', fromSample: true });
+    const plan221a = await createPlan(ana, { name: '221а', groups: ['221а'], fromSample: true });
     const lab = 'ПИ lab 3 07:30–10:15 1211';
     expect(show(await getWeek(ana, plan221a, 1))).not.toContain(lab);
     expect(show(await getWeek(ana, plan221a, 3))).toContain(lab);
+  });
+
+  test('a plan that follows two groups shows the classes of both, and one with no groups shows none', async () => {
+    const both = await createPlan(ana, { name: 'Две', groups: ['222', '221а'], fromSample: true });
+    const week3 = show(await getWeek(ana, both, 3));
+    expect(week3).toContain('УП lab 1 13:45–16:30 705'); // 222
+    expect(week3).toContain('ПИ lab 3 07:30–10:15 1211'); // 221а
+    const none = await createPlan(ana, { name: 'Без групи', fromSample: true });
+    expect(await getWeek(ana, none, 3)).toEqual([]);
+    await setPlanGroups(ana, none, ['222']);
+    expect(show(await getWeek(ana, none, 3))).toContain('УП lab 1 13:45–16:30 705');
   });
 
   test.each([0, 16, 2.5, NaN])('week %s gives 400', async (week) => {

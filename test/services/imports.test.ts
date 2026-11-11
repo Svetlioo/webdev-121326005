@@ -54,7 +54,7 @@ const job = { id: 1, planId: 1, sourceUrl: null, image: photo, imageType: 'image
 beforeEach(async () => {
   vi.resetAllMocks();
   installFakes();
-  await createPlan(ana, { name: 'Зима', group: '222' }); // plan 1, owned by ana
+  await createPlan(ana, { name: 'Зима', groups: ['222'] }); // plan 1, owned by ana
   vi.mocked(insertImport).mockImplementation(async () => anImport({ status: 'queued', draft: null }));
 });
 
@@ -227,6 +227,11 @@ describe('who may import', () => {
 });
 
 describe('what an import may start from', () => {
+  test('a page address and a photo together', async () => {
+    await startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89', image: photo, imageType: 'image/png' });
+    expect(insertImport).toHaveBeenCalledWith(1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89', image: photo, imageType: 'image/png', instructions: '' }, 'ana');
+  });
+
   test('a page address, trimmed, with instructions', async () => {
     await startImport(ana, 1, { sourceUrl: ' https://cs.fcst.bg/page.php?id=89 ', instructions: ' само 222 ' });
     expect(insertImport).toHaveBeenCalledWith(
@@ -238,7 +243,6 @@ describe('what an import may start from', () => {
 
   test.each([
     ['nothing', {}],
-    ['both a page and a photo', { sourceUrl: 'https://a.bg', image: photo, imageType: 'image/png' }],
     ['an address that is not http', { sourceUrl: 'file:///etc/passwd' }],
     ['a photo that is not an image', { image: photo, imageType: 'application/pdf' }],
     ['a photo with no type', { image: photo }],
@@ -252,6 +256,15 @@ describe('what an import may start from', () => {
 describe('reading a page', () => {
   test('drops scripts, styles, markup and everything from "Списъчен състав" on', () => {
     expect(pageText('<style>x{}</style><script>alert(1)</script><td>КЗ&nbsp;л.</td>\n<p>Списъчен състав</p> Иван')).toBe(' КЗ л. ');
+  });
+
+  test('a "Списъчен състав" tab in the menu before the timetable does not cut the timetable; the student section does', () => {
+    const html = `<nav><a href="#classes">Разписание</a> <a href="#ksi-students">Списъчен състав</a></nav>
+      <section id="ksi-classes">Понеделник 07:30 – 10:15 ОИТ Лекция Зала 1216</section>
+      <section id="ksi-students"><h2>Списък</h2><p>Иван Иванов</p></section>`;
+    const text = pageText(html);
+    expect(text).toContain('ОИТ Лекция Зала 1216');
+    expect(text).not.toContain('Иван');
   });
 
   test('a page without student lists is kept whole', () => {

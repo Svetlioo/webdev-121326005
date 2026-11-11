@@ -21,7 +21,7 @@ let planId: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
-  planId = await createPlan(ana, { name: 'Зима', group: '222', fromSample: true });
+  planId = await createPlan(ana, { name: 'Зима', groups: ['222'], fromSample: true });
 });
 
 describe('MCP tools', () => {
