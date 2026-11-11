@@ -1,11 +1,13 @@
 import Link from 'next/link';
+import { AppHeader } from '@/app/app-header';
+import { canPublish } from '@/src/services/errors';
 import { redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getActor } from '@/app/session';
 import type { Entry } from '@/src/data/entries';
 import { listClasses } from '@/src/services/schedule';
-import { DeleteButton, SignOutButton } from './buttons';
+import { DeleteButton } from './buttons';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
 const TYPES = { lecture: 'Лекция', seminar: 'Семинар', lab: 'Упражнение' };
@@ -15,26 +17,16 @@ export default async function SchedulePage() {
   const actor = await getActor();
   if (!actor) redirect('/signin');
   const classes = await listClasses(actor);
-  const publisher = actor.role === 'publisher';
+  const publisher = canPublish(actor);
   const days = [1, 2, 3, 4, 5, 6]
     .map((day) => ({ day, classes: classes.filter((c) => c.day === day) }))
     .filter((d) => d.classes.length > 0);
 
   return (
     <div className="min-h-dvh bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <nav className="flex gap-4 text-sm">
-            <Link href="/week" className="text-muted-foreground hover:text-foreground">
-              Седмица
-            </Link>
-            <span className="font-medium">Цялото разписание</span>
-          </nav>
-          <SignOutButton />
-        </div>
-      </header>
+      <AppHeader actor={actor} current="schedule" />
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">ФКСТ, КСИ, магистри</h1>
           <p className="text-sm text-muted-foreground">

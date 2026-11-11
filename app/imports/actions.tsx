@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 const FAILED = 'Нещо се обърка. Опитайте отново.';
 
 /** Sends a request and refreshes the page, or shows the server's refusal. */
-function useAction() {
+export function useAction() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -68,13 +68,18 @@ export function ImportForm() {
   );
 }
 
-/** Reloads the page every few seconds while an import is queued or processing. */
-export function AutoRefresh() {
+/** Reloads the page every few seconds while something waits for the worker, for two minutes at most:
+ *  with no worker running (as on Render) the page must not poll forever. */
+export function AutoRefresh({ forMs = 120_000 }: { forMs?: number }) {
   const router = useRouter();
   useEffect(() => {
     const timer = setInterval(() => router.refresh(), 3000);
-    return () => clearInterval(timer);
-  }, [router]);
+    const stop = setTimeout(() => clearInterval(timer), forMs);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [router, forMs]);
   return null;
 }
 

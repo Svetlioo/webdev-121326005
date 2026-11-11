@@ -1,16 +1,15 @@
 import Link from 'next/link';
+import { AppHeader } from '@/app/app-header';
 import { redirect } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getActor } from '@/app/session';
-import { SignOutButton } from '@/app/schedule/buttons';
 import type { Entry } from '@/src/data/entries';
-import { AppError } from '@/src/services/errors';
+import { AppError, canPublish } from '@/src/services/errors';
 import { findFreeRooms, getWeek, LAST_WEEK, listClasses, searchClasses } from '@/src/services/schedule';
 import { authMessage } from '@/src/auth-messages';
-import { LinkGoogleButton } from './link-google';
 import { NoteForm } from './note-form';
 import { WeekCalendar } from './week-calendar';
 
@@ -37,7 +36,7 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
   const actor = await getActor();
   if (!actor) redirect('/signin');
   const p = await searchParams;
-  const publisher = actor.role === 'publisher';
+  const publisher = canPublish(actor);
 
   const groups = [...new Set((await listClasses(actor)).flatMap((c) => c.groups.map((g) => g.name)))].sort();
   const group = param(p, 'group', groups[0] ?? '');
@@ -51,27 +50,9 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="min-h-dvh bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
-          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            <span className="font-medium">Седмица</span>
-            <Link href="/schedule" className="text-muted-foreground hover:text-foreground">
-              Цялото разписание
-            </Link>
-            {publisher && (
-              <Link href="/imports" className="text-muted-foreground hover:text-foreground">
-                Внасяне
-              </Link>
-            )}
-          </nav>
-          <div className="flex items-center gap-1">
-            <LinkGoogleButton />
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader actor={actor} current="week" />
 
-      <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
+      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
         <h1 className="text-2xl font-semibold tracking-tight">Моята седмица</h1>
         {p.error && (
           <Alert variant="destructive">

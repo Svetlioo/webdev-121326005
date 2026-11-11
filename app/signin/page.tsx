@@ -39,13 +39,13 @@ function SignInForm() {
       : await authClient.signUp.email({ email, password, name: email.split('@')[0] });
     setBusy(false);
     if (error) return setError(authMessage(error.code));
-    router.push('/week');
+    router.push('/plans');
     router.refresh();
   }
 
   async function withGoogle() {
     setError('');
-    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/week', errorCallbackURL: '/signin' });
+    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/plans', errorCallbackURL: '/signin' });
     if (error) setError(authMessage(error.code));
   }
 

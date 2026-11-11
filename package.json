@@ -13,7 +13,8 @@
     "db:setup": "tsx --env-file-if-exists=.env db/setup.ts",
     "make-publisher": "tsx --env-file-if-exists=.env scripts/make-publisher.ts",
     "mcp": "tsx --env-file-if-exists=.env mcp-server/server.ts",
-    "worker": "tsx --env-file-if-exists=.env src/worker/index.ts"
+    "worker": "tsx --env-file-if-exists=.env src/worker/index.ts",
+    "make-admin": "tsx --env-file-if-exists=.env scripts/make-admin.ts"
   },
   "repository": {
     "type": "git",

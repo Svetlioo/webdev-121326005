@@ -8,6 +8,7 @@ import type { EventContentArg } from '@fullcalendar/core';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { WeekClass } from '@/src/services/schedule';
+import { LABELS, type Label } from '@/src/services/windows';
 import { NoteForm } from './note-form';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
@@ -16,11 +17,14 @@ const TYPES = { lecture: 'Лекция', seminar: 'Семинар', lab: 'Упр
 // The schedule knows week numbers, not dates, so every week is drawn on the same
 // reference week: Monday 5 January 2026 is day 1. Only the weekday names are shown.
 const REFERENCE_MONDAY = 5;
+/** A class, and on a plan page its label ("can attend" and so on) with the reason. */
+export type CalendarClass = WeekClass & { label?: Label | null; reason?: string };
+
 const dateOf = (day: number, time: string) => `2026-01-${String(REFERENCE_MONDAY + day - 1).padStart(2, '0')}T${time}:00`;
 
 /** What one class shows inside its box in the calendar. */
 function ClassBox({ event, timeText }: EventContentArg) {
-  const c = event.extendedProps.entry as WeekClass;
+  const c = event.extendedProps.entry as CalendarClass;
   return (
     <div className="flex h-full flex-col gap-0.5 overflow-hidden p-1 text-xs leading-tight">
       <span className="font-semibold">{c.course}</span>
@@ -29,13 +33,14 @@ function ClassBox({ event, timeText }: EventContentArg) {
       </span>
       <span className="opacity-80">{timeText}</span>
       {c.cancelled && <span className="font-semibold">Отменено</span>}
-      {!c.cancelled && c.notes.length > 0 && <span className="truncate italic">{c.notes[0].text}</span>}
+      {c.label && <span className="font-semibold">{LABELS[c.label]}</span>}
+      {!c.cancelled && !c.label && c.notes.length > 0 && <span className="truncate italic">{c.notes[0].text}</span>}
     </div>
   );
 }
 
 /** The week as a Teams-like calendar. Clicking a class opens its details and, for a publisher, the note form. */
-export function WeekCalendar({ classes, week, publisher }: { classes: WeekClass[]; week: number; publisher: boolean }) {
+export function WeekCalendar({ classes, week, publisher }: { classes: CalendarClass[]; week: number; publisher: boolean }) {
   const [openId, setOpenId] = useState<number | null>(null);
   // Looked up from the props, so a note added in the dialog shows after the page refreshes.
   const open = classes.find((c) => c.id === openId);
@@ -47,7 +52,8 @@ export function WeekCalendar({ classes, week, publisher }: { classes: WeekClass[
         title: c.course,
         start: dateOf(c.day, c.startsAt),
         end: dateOf(c.day, c.endsAt),
-        classNames: [`class-${c.type}`, ...(c.cancelled ? ['class-cancelled'] : [])],
+        // On a plan page the colour says the label; on the week view it says the kind of class.
+        classNames: [c.label ? `label-${c.label}` : `class-${c.type}`, ...(c.cancelled ? ['class-cancelled'] : [])],
         extendedProps: { entry: c },
       })),
     [classes],
@@ -89,6 +95,11 @@ export function WeekCalendar({ classes, week, publisher }: { classes: WeekClass[
                 {DAYS[open.day]}, {open.startsAt}–{open.endsAt} · зала {open.room} · {week}. седмица
               </DialogDescription>
             </DialogHeader>
+            {open.label && (
+              <p className="text-sm">
+                <span className="font-medium">{LABELS[open.label]}.</span> {open.reason}
+              </p>
+            )}
             <p className="text-sm">
               Групи: {open.groups.map((g) => g.name).join(', ')}
               {open.startWeek > 1 && ` · от ${open.startWeek}. седмица`}

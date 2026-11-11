@@ -194,3 +194,20 @@
   background: var(--muted);
   color: var(--muted-foreground);
 }
+
+/* On a plan page the colour says what to do: green can attend, amber needs time off, red email the teacher. */
+.week-calendar .fc .label-can_attend {
+  background: oklch(0.94 0.05 155);
+  border-color: oklch(0.55 0.14 155);
+  color: oklch(0.3 0.07 155);
+}
+.week-calendar .fc .label-time_off {
+  background: oklch(0.95 0.06 80);
+  border-color: oklch(0.7 0.15 70);
+  color: oklch(0.35 0.08 60);
+}
+.week-calendar .fc .label-email {
+  background: oklch(0.94 0.04 25);
+  border-color: oklch(0.6 0.2 25);
+  color: oklch(0.35 0.1 25);
+}

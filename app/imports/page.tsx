@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { AppHeader } from '@/app/app-header';
+import { canPublish } from '@/src/services/errors';
 import { redirect } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +19,7 @@ export const STATUS = {
 export default async function ImportsPage() {
   const actor = await getActor();
   if (!actor) redirect('/signin');
-  if (actor.role !== 'publisher') {
+  if (!canPublish(actor)) {
     return (
       <main className="mx-auto max-w-md px-4 py-16">
         <Alert variant="destructive">
@@ -32,15 +34,8 @@ export default async function ImportsPage() {
   return (
     <div className="min-h-dvh bg-muted/40">
       {waiting && <AutoRefresh />}
-      <header className="border-b bg-background">
-        <nav className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4 text-sm">
-          <Link href="/week" className="text-muted-foreground hover:text-foreground">
-            Седмица
-          </Link>
-          <span className="font-medium">Внасяне</span>
-        </nav>
-      </header>
-      <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
+      <AppHeader actor={actor} current="imports" />
+      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
         <h1 className="text-2xl font-semibold tracking-tight">Внасяне на разписание</h1>
         <section className="rounded-lg border bg-background p-4">
           <ImportForm />

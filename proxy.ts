@@ -8,4 +8,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/schedule/:path*', '/week/:path*', '/imports/:path*'] };
+export const config = { matcher: ['/schedule/:path*', '/week/:path*', '/imports/:path*', '/plans/:path*', '/admin/:path*'] };

@@ -13,6 +13,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Run: `npm run db:up && npm run db:setup && npm run dev`, then open http://localhost:3000 (PostgreSQL in Docker on port 5433)
 - Google sign-in (optional locally): create an OAuth client (Web application) at console.cloud.google.com, add the redirect URI `http://localhost:3000/api/auth/callback/google` (and the Render one later), and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. Without them the app works and "Вход с Google" says it is not set up.
 - Make a publisher: `npm run make-publisher -- someone@example.com` (after they have signed up)
+- Make the first admin: `npm run make-admin -- someone@example.com`; after that an admin gives roles on /admin/users
 - Import worker (on the laptop, next to Ollama): `npm run worker`
 - Test: `npm test`
 - Coverage: `npm run coverage`

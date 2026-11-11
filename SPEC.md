@@ -133,12 +133,12 @@ Where my code does not match the layering: `processNextImport` in `src/services/
 | AC-16 | `test/services/schedule.test.ts`: "AC-16 a signed-in student gets the classes from entries, sorted by day and time" |
 | AC-17 | `test/auth.test.ts`: "AC-17 a wrong password is refused with "Грешен имейл или парола" and no session is created" |
 | AC-18 | `test/services/schedule.test.ts`: "AC-18 a publisher deletes a class..." and "AC-18 a student who tries to delete a class gets 403..." |
-| AC-8 |  |
-| AC-9 |  |
-| AC-19 |  |
-| AC-20 |  |
-| AC-21 |  |
-| AC-22 |  |
+| AC-8 | `test/services/plans.test.ts`: "AC-8 with "Работя от 9:00 до 16:30 в делничните дни", the Monday КЗ lecture and the Saturday КЗ lab can be attended, and no weekday class between 9:00 and 16:30" |
+| AC-9 | `test/services/plans.test.ts`: "AC-9 with no model, the labels are there at once, computed without the model, and the plan waits for the worker" |
+| AC-19 | `test/services/plans.test.ts`: "AC-19 a plan shared with Boris shows under his shared plans; ..."; `test/api/plans.test.ts`: "AC-19 a reader who posts a message or a source gets 403 and nothing is added" |
+| AC-20 | `test/services/plans.test.ts`: "AC-20 someone the plan is not shared with gets 403 ..."; `test/api/plans.test.ts`: "AC-20 deleting someone else's plan gets 403, and signed out 401; the plan stays" |
+| AC-21 | `test/services/users.test.ts`: "AC-21 an admin makes a student a publisher; ..."; `test/api/plans.test.ts`: "AC-21 an admin changes a role (204); a publisher gets 403 and nothing changes" |
+| AC-22 | `test/services/plans.test.ts`: "AC-22 an answer that does not match the schema is rejected and the windows without the model stay" |
 
 ## Spec vs result
 <!-- After the agent builds the slice: which criteria passed, which it missed or reinterpreted, and what you changed in this spec because of it. -->
