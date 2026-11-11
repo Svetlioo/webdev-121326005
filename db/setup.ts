@@ -1,6 +1,6 @@
-// Creates the tables and, on an empty database, adds the ФКСТ КСИ master's winter 2026/27
+// Applies the migrations and, on an empty database, adds the ФКСТ КСИ master's winter 2026/27
 // classes copied from the official HTML page. Timetable only, no student names. Safe to rerun.
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { closeDb, db } from '../src/data/db';
 
@@ -17,7 +17,27 @@ type SeedEntry = {
 
 async function main() {
   const pool = db();
-  await pool.query(await readFile(join(import.meta.dirname, 'schema.sql'), 'utf8'));
+  // Each numbered file in db/migrations runs once, in order, and is remembered.
+  await pool.query('CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY)');
+  const dir = join(import.meta.dirname, 'migrations');
+  for (const name of (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort()) {
+    const done = await pool.query('SELECT 1 FROM schema_migrations WHERE name = $1', [name]);
+    if (done.rowCount) continue;
+    // The file and its record commit together, so a crash never leaves one without the other.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(await readFile(join(dir, name), 'utf8'));
+      await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [name]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    console.log(`applied ${name}`);
+  }
 
   const { rows } = await pool.query('SELECT count(*)::int AS n FROM entries');
   if (rows[0].n > 0) return console.log(`database ready, ${rows[0].n} classes already there`);

@@ -26,7 +26,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
   - `src/auth.ts` the Better Auth configuration. Better Auth writes its own tables (`user`, `session`, `account`, `verification`): the one exception to "only `src/data/` writes SQL".
   - `src/model/` the model client and its fallback (later).
   - `src/worker/` the background import job (later).
-  - `db/schema.sql` the tables, applied by `npm run db:setup`. `db/seed/` seed data.
+  - `db/migrations/NNN_name.sql` the tables, one numbered file per change, applied once each by `npm run db:setup`. Never edit one that has run: add a new file. `db/seed/` seed data.
   - `test/` Vitest tests, mirroring `src/`.
 - Naming: files in kebab-case, functions and variables in camelCase, tables plural and columns in snake_case.
 - Every service function takes the acting user (`actor`, or `null` for nobody signed in) as its first argument, and checks permissions itself. Deny by default: an action is allowed only if a rule says so. Hiding a button in the UI is not a permission check.
@@ -49,7 +49,7 @@ that talks to the database directly is a second, unguarded way into your data: n
 - Route handlers: `app/api/**/route.ts`. Server Components in `app/` may call services directly, never `src/data/`.
 - Services: `src/services/`
 - Data access: `src/data/`
-- Database: PostgreSQL (Docker locally, Neon in production), schema in `db/schema.sql`
+- Database: PostgreSQL (Docker locally, Neon in production), schema in `db/migrations/`
 - MCP tools: `mcp-server/`, calling `src/services/`
 
 ## The model feature
