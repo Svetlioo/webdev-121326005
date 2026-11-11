@@ -29,6 +29,11 @@ export async function listEntries(): Promise<Entry[]> {
   return rows;
 }
 
+export async function entryExists(id: number): Promise<boolean> {
+  const { rowCount } = await db().query('SELECT 1 FROM entries WHERE id = $1', [id]);
+  return rowCount === 1;
+}
+
 /** Deletes one class and its group rows. Returns whether it existed. */
 export async function deleteEntry(id: number): Promise<boolean> {
   const { rowCount } = await db().query('DELETE FROM entries WHERE id = $1', [id]);

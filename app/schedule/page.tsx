@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,9 +24,12 @@ export default async function SchedulePage() {
     <div className="min-h-dvh bg-muted/40">
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <p className="text-sm">
-            <span className="text-muted-foreground">ТУ София ·</span> Седмично разписание
-          </p>
+          <nav className="flex gap-4 text-sm">
+            <Link href="/week" className="text-muted-foreground hover:text-foreground">
+              Седмица
+            </Link>
+            <span className="font-medium">Цялото разписание</span>
+          </nav>
           <SignOutButton />
         </div>
       </header>

@@ -98,15 +98,15 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 <!-- Filled in from Exercise 3 onward: each AC id, and the test that names it. -->
 | Criterion | Test |
 | --- | --- |
-| AC-1 |  |
-| AC-2 |  |
+| AC-1 | `test/services/week.test.ts`: "AC-1 group 222 sees the УП lab on Monday 13:45 in 705 in week 3, not in week 4 (even) or week 1 (before it starts)" |
+| AC-2 | `test/services/week.test.ts`: "AC-2 group 221а does not see the Wednesday ПИ lab in week 1, and sees it in room 1211 in week 3" |
 | AC-3 |  |
 | AC-4 |  |
 | AC-5 |  |
-| AC-7 |  |
+| AC-7 | `test/services/week.test.ts`: "AC-7 a publisher who adds "Отменено" to the Saturday КЗ lab of 222 for week 6 cancels it in week 6 only" |
 | AC-10 |  |
-| AC-12 |  |
-| AC-13 |  |
+| AC-12 | `test/services/week.test.ts`: "AC-12 searching for "1211" lists the ПИ labs on Wednesday and Thursday and the КЗ lab on Saturday, and nothing else" |
+| AC-13 | `test/services/week.test.ts`: "AC-13 free rooms on Monday 07:30–10:15 in week 3 do not include 1216, where the ОИТ lecture is" |
 | AC-14 |  |
 | AC-15 | `test/proxy.test.ts`: "AC-15 a visitor who is not signed in and opens /schedule is redirected to /signin" |
 | AC-16 | `test/services/schedule.test.ts`: "AC-16 a signed-in student gets the classes from entries, sorted by day and time" |

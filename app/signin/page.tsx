@@ -29,7 +29,7 @@ export default function SignInPage() {
       : await authClient.signUp.email({ email, password, name: email.split('@')[0] });
     setBusy(false);
     if (error) return setError(authMessage(error.code));
-    router.push('/schedule');
+    router.push('/week');
     router.refresh();
   }
 

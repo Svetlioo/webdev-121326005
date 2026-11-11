@@ -3,7 +3,8 @@ import { deleteEntry, listEntries, type Entry } from '../../src/data/entries';
 import { deleteClass, listClasses } from '../../src/services/schedule';
 
 // The data layer is replaced, so these tests check the rules, not the database.
-vi.mock('../../src/data/entries', () => ({ listEntries: vi.fn(), deleteEntry: vi.fn() }));
+vi.mock('../../src/data/entries', () => ({ listEntries: vi.fn(), deleteEntry: vi.fn(), entryExists: vi.fn() }));
+vi.mock('../../src/data/notes', () => ({ listNotes: vi.fn(), insertNote: vi.fn() }));
 
 const student = { id: 'u1', role: 'student' };
 const publisher = { id: 'u2', role: 'publisher' };
