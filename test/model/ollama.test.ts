@@ -15,7 +15,7 @@ describe('the Ollama client', () => {
     const [url, init] = vi.mocked(fetchMock).mock.calls[0];
     const body = JSON.parse(String(init!.body));
     expect(url).toBe('http://localhost:11434/api/chat');
-    expect(body).toMatchObject({ model: 'qwen', format: 'json', stream: false });
+    expect(body).toMatchObject({ model: 'qwen', format: 'json', stream: false, options: { num_ctx: 32768 } });
     expect(body.messages[0].content).toContain('221а, 222');
     expect(body.messages[1].content).toContain('ПИ л.у. 1211');
     expect(body.messages[1].content).toContain('само 222');

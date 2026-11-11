@@ -9,6 +9,10 @@ Rules: "л." is a lecture, "л.у." is a lab, "с.у." is a seminar; the room fo
 a class held in alternating weeks: give each group its parity. Footnotes such as "упражненията започват от 3 седмица"
 set startWeek. Use only these groups: {groups}. Never include names of students or teachers.`;
 
+// Ollama would otherwise reserve the model's whole context (262k tokens for qwen3-vl, 43 GB).
+// 32k tokens is enough for one photo or one page of 30,000 characters, plus the model's thinking.
+const CONTEXT_TOKENS = 32_768;
+
 export type OllamaOptions = { url: string; model: string; timeoutMs: number; fetch?: typeof fetch };
 
 export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = fetch }: OllamaOptions): ModelClient {
@@ -26,6 +30,7 @@ export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = f
             model,
             stream: false,
             format: 'json',
+            options: { num_ctx: CONTEXT_TOKENS },
             messages: [
               { role: 'system', content: PROMPT.replace('{groups}', source.groups.join(', ')) },
               { role: 'user', content: user.join('\n\n'), images: source.image ? [source.image.data.toString('base64')] : undefined },
