@@ -15,7 +15,9 @@ describe('the Ollama client', () => {
     const [url, init] = vi.mocked(fetchMock).mock.calls[0];
     const body = JSON.parse(String(init!.body));
     expect(url).toBe('http://localhost:11434/api/chat');
-    expect(body).toMatchObject({ model: 'qwen', format: 'json', stream: false, options: { num_ctx: 32768 } });
+    expect(body).toMatchObject({ model: 'qwen', stream: false, options: { num_ctx: 32768 } });
+    // Structured output: the answer's JSON Schema, not just "json".
+    expect(body.format).toMatchObject({ type: 'object', required: ['classes'] });
     expect(body.messages[0].content).toContain('221а, 222');
     expect(body.messages[1].content).toContain('ПИ л.у. 1211');
     expect(body.messages[1].content).toContain('само 222');
@@ -54,9 +56,36 @@ describe('the Ollama client', () => {
   });
 });
 
+describe('readPlan', () => {
+  test('sends the instructions, the photos and the chat, with the plan schema as the format', async () => {
+    const fetchMock = answer('{"reply": "Разбрах.", "windows": []}');
+    const client = createOllamaClient({ url: 'http://m', model: 'qwen', timeoutMs: 1000, fetch: fetchMock });
+    const output = await client.readPlan({
+      instructions: ['Работя от 9:00 до 16:30'],
+      images: [{ data: Buffer.from('png'), type: 'image/png' }],
+      messages: [{ role: 'user', content: 'И в събота до 12.' }],
+    });
+    expect(output).toEqual({ reply: 'Разбрах.', windows: [] });
+    const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body));
+    expect(body.format).toMatchObject({ type: 'object', required: ['reply', 'windows'] });
+    expect(body.messages[1].content).toContain('Работя от 9:00 до 16:30');
+    expect(body.messages[1].images).toEqual([Buffer.from('png').toString('base64')]);
+    expect(body.messages[2]).toEqual({ role: 'user', content: 'И в събота до 12.' });
+  });
+
+  test('without photos or instructions nothing is attached', async () => {
+    const fetchMock = answer('{}');
+    await createOllamaClient({ url: 'http://m', model: 'q', timeoutMs: 1000, fetch: fetchMock }).readPlan({ instructions: [], images: [], messages: [] });
+    const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body));
+    expect(body.messages[1].images).toBeUndefined();
+    expect(body.messages[1].content).toContain('(none)');
+  });
+});
+
 describe('modelFromEnv', () => {
   test('without OLLAMA_URL (as on Render) the fallback fails at once instead of waiting', async () => {
     await expect(modelFromEnv({}).readSchedule(source)).rejects.toBeInstanceOf(ModelUnavailableError);
+    await expect(modelFromEnv({}).readPlan({ instructions: [], images: [], messages: [] })).rejects.toBeInstanceOf(ModelUnavailableError);
   });
 
   test('with OLLAMA_URL it talks to Ollama', () => {

@@ -46,7 +46,7 @@ const good: DraftClass = {
 const anImport = (fields: Partial<Import> = {}): Import => ({
   id: 1, status: 'ready', sourceUrl: null, hasImage: true, instructions: '', draft: [good], error: null, createdAt: '', ...fields,
 });
-const fakeModel = (answer: () => Promise<unknown>): ModelClient => ({ readSchedule: vi.fn(answer) });
+const fakeModel = (answer: () => Promise<unknown>): ModelClient => ({ readSchedule: vi.fn(answer), readPlan: vi.fn() });
 const job = { id: 1, sourceUrl: null, image: photo, imageType: 'image/png', instructions: '' };
 
 beforeEach(() => {

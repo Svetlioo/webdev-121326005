@@ -1,8 +1,9 @@
-// The import worker: `npm run worker`, on the laptop next to the model. It reads the queue in
-// the imports table, so an HTTP request never waits for the model.
+// The worker: `npm run worker`, on the laptop next to the model. It reads two queues, the imports
+// table and plans with model_status 'queued', so an HTTP request never waits for the model.
 import { closeDb } from '../data/db';
 import { modelFromEnv } from '../model/ollama';
 import { processNextImport } from '../services/imports';
+import { processNextPlan } from '../services/plans';
 
 const model = modelFromEnv();
 let running = true;
@@ -15,7 +16,9 @@ async function main() {
     try {
       const job = await processNextImport(model);
       if (job) console.log(`import ${job.id} done`);
-      else await new Promise((resolve) => setTimeout(resolve, 3000));
+      const plan = await processNextPlan(model);
+      if (plan !== null) console.log(`plan ${plan} done`);
+      if (!job && plan === null) await new Promise((resolve) => setTimeout(resolve, 3000));
     } catch (error) {
       console.error(`worker: ${error instanceof Error ? error.message : error}`);
       await new Promise((resolve) => setTimeout(resolve, 3000));

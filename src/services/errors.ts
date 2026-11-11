@@ -16,8 +16,11 @@ export function requireActor(actor: Actor | null): Actor {
   return actor;
 }
 
-/** Actions that change the schedule are for publishers only. */
+/** Publishers and admins may change the schedule everyone sees. */
+export const canPublish = (actor: Actor | null) => actor?.role === 'publisher' || actor?.role === 'admin';
+
+/** Actions that change the schedule are for publishers (and admins) only. */
 export function requirePublisher(actor: Actor | null, message: string): Actor {
-  if (requireActor(actor).role !== 'publisher') throw new AppError(403, message);
+  if (!canPublish(requireActor(actor))) throw new AppError(403, message);
   return actor as Actor;
 }
