@@ -1,0 +1,26 @@
+{
+  "title": "ФКСТ, КСИ, магистри, зимен семестър 2026/2027",
+  "sourceUrl": "https://cs.fcst.bg/page.php?id=89",
+  "groups": ["221а", "221б", "222"],
+  "entries": [
+    { "course": "ОИТ", "type": "lecture", "day": 1, "startsAt": "07:30", "endsAt": "10:15", "room": "1216", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"]] },
+    { "course": "ПИ", "type": "lecture", "day": 1, "startsAt": "10:30", "endsAt": "13:15", "room": "710", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"]] },
+    { "course": "МСКМ", "type": "lab", "day": 1, "startsAt": "13:45", "endsAt": "16:30", "room": "2429", "startWeek": 3, "groups": [["221а", "all"]] },
+    { "course": "УП", "type": "lab", "day": 1, "startsAt": "13:45", "endsAt": "16:30", "room": "705", "startWeek": 3, "groups": [["222", "odd"]] },
+    { "course": "КЗ", "type": "lecture", "day": 1, "startsAt": "16:45", "endsAt": "19:30", "room": "701", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"], ["222", "all"]] },
+    { "course": "ОИТ", "type": "lab", "day": 2, "startsAt": "07:30", "endsAt": "10:15", "room": "4302", "startWeek": 3, "groups": [["221б", "all"]] },
+    { "course": "МСКМ", "type": "lab", "day": 2, "startsAt": "07:30", "endsAt": "10:15", "room": "2429", "startWeek": 3, "groups": [["222", "odd"]] },
+    { "course": "МСКМ", "type": "lecture", "day": 2, "startsAt": "10:30", "endsAt": "13:15", "room": "701", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"], ["222", "all"]] },
+    { "course": "ПИ", "type": "lab", "day": 3, "startsAt": "07:30", "endsAt": "10:15", "room": "1211", "startWeek": 2, "groups": [["221а", "odd"], ["221б", "even"]] },
+    { "course": "УП", "type": "lecture", "day": 3, "startsAt": "10:30", "endsAt": "13:15", "room": "1216", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"], ["222", "all"]] },
+    { "course": "Съвременни Java технологии", "type": "lecture", "day": 3, "startsAt": "13:45", "endsAt": "16:30", "room": "705", "startWeek": 1, "groups": [["221а", "all"], ["221б", "all"], ["222", "all"]] },
+    { "course": "МСКМ", "type": "lab", "day": 3, "startsAt": "16:45", "endsAt": "19:30", "room": "2429", "startWeek": 3, "groups": [["221б", "all"]] },
+    { "course": "Съвременни Java технологии", "type": "lab", "day": 4, "startsAt": "07:30", "endsAt": "10:15", "room": "712", "startWeek": 3, "groups": [["221а", "odd"], ["221б", "even"]] },
+    { "course": "ПИ", "type": "lab", "day": 4, "startsAt": "07:30", "endsAt": "10:15", "room": "1211", "startWeek": 2, "groups": [["222", "odd"]] },
+    { "course": "УП", "type": "lab", "day": 4, "startsAt": "10:30", "endsAt": "13:15", "room": "705", "startWeek": 3, "groups": [["221а", "odd"], ["221б", "even"]] },
+    { "course": "Съвременни Java технологии", "type": "lab", "day": 4, "startsAt": "10:30", "endsAt": "13:15", "room": "713", "startWeek": 3, "groups": [["222", "odd"]] },
+    { "course": "МСВИВИ", "type": "lecture", "day": 5, "startsAt": "07:30", "endsAt": "10:15", "room": "1311", "startWeek": 1, "groups": [["222", "all"]] },
+    { "course": "КЗ", "type": "lab", "day": 6, "startsAt": "10:30", "endsAt": "13:15", "room": "1211", "startWeek": 4, "groups": [["222", "even"]] },
+    { "course": "КЗ", "type": "lab", "day": 6, "startsAt": "13:45", "endsAt": "16:30", "room": "713", "startWeek": 4, "groups": [["221а", "odd"], ["221б", "even"]] }
+  ]
+}
