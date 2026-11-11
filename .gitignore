@@ -19,3 +19,11 @@ coverage/
 
 # editor and OS files
 .DS_Store
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# browser automation output
+.playwright-mcp/
