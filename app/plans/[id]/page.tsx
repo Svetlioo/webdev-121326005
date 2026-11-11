@@ -84,12 +84,14 @@ export default async function PlanPage({ params, searchParams }: Props) {
           {/* Left: what the plan is built from */}
           <aside className="grid content-start gap-4">
             <section aria-labelledby="timetable-title" className="grid gap-3 rounded-lg border bg-background p-4">
-              <h2 id="timetable-title" className="flex items-center justify-between text-sm font-medium">
-                Разписание
-                <Link href={`/plans/${plan.id}/classes`} className="text-xs font-normal underline underline-offset-4">
-                  всички занятия, търсене, свободни зали
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 id="timetable-title" className="text-sm font-medium">
+                  Разписание
+                </h2>
+                <Link href={`/plans/${plan.id}/classes`} className="text-xs whitespace-nowrap text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  Всички занятия и търсене →
                 </Link>
-              </h2>
+              </div>
               {canEdit ? (
                 <>
                   <p className="text-xs text-muted-foreground">
@@ -169,10 +171,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
                 )}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {plan.windowsFrom === 'parser'
-                  ? 'Прочетени веднага от вградения анализатор, без AI (изрази като „от 9:00 до 16:30 в делничните дни“).'
-                  : 'Прочетени от AI модела от инструкциите, снимките и чата.'}
-                {thinking && ' Моделът ще ги прегледа, когато е включен, и ще ги уточни.'}
+                {plan.windowsFrom === 'model'
+                  ? 'Прочетени от AI модела от инструкциите, снимките и чата.'
+                  : 'AI моделът още не е прочел инструкциите (изключен е или работи). Дотогава часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“.'}
               </p>
               {plan.modelStatus === 'failed' && (
                 <p className="text-xs text-muted-foreground">Моделът не успя да отговори, затова часовете са изчислени без него.</p>
