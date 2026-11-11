@@ -45,6 +45,7 @@ describe('my plan', () => {
     const weekdayInWork = view.classes.filter((c) => c.day <= 5 && c.startsAt < '16:30' && c.endsAt > '09:00');
     expect(weekdayInWork.length).toBeGreaterThan(0);
     expect(weekdayInWork.every((c) => c.label !== 'can_attend')).toBe(true);
+    expect(label(view, 'МСКМ', 2, '10:30')).toBe('email');
   });
 
   test('AC-9 with no model, the labels are there at once, computed without the model, and the plan waits for the worker', async () => {

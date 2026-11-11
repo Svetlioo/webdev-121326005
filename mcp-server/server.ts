@@ -139,6 +139,17 @@ function send(reply: object) {
   process.stdout.write(JSON.stringify(reply) + '\n');
 }
 
+/** The user the server acts for: MCP_TOKEN's user, who must be a student. An admin's token is refused,
+ *  so the MCP server can never reach every plan. */
+export async function mcpActor(token: string | undefined, lookUp = actorFromToken): Promise<Actor | null> {
+  const actor = await lookUp(token);
+  if (actor?.role === 'admin') {
+    console.error("MCP_TOKEN belongs to an admin; use a student's session instead");
+    return null;
+  }
+  return actor;
+}
+
 if (import.meta.filename === process.argv[1]) {
   const lines = readline.createInterface({ input: process.stdin });
   lines.on('line', async (line) => {
@@ -151,7 +162,7 @@ if (import.meta.filename === process.argv[1]) {
     }
     try {
       // Who is calling, checked through Better Auth on every message, like every HTTP request.
-      const actor = await actorFromToken(process.env.MCP_TOKEN).catch((error) => {
+      const actor = await mcpActor(process.env.MCP_TOKEN).catch((error) => {
         console.error('could not check MCP_TOKEN: ' + error.message);
         return null;
       });

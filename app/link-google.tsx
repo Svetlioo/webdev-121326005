@@ -10,7 +10,7 @@ export function LinkGoogleButton() {
   const [error, setError] = useState('');
   async function onClick() {
     setError('');
-    const { error } = await authClient.linkSocial({ provider: 'google', callbackURL: '/week', errorCallbackURL: '/week' });
+    const { error } = await authClient.linkSocial({ provider: 'google', callbackURL: '/plans', errorCallbackURL: '/plans' });
     if (error) setError(authMessage(error.code));
   }
   return (

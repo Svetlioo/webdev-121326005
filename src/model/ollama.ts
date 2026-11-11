@@ -64,7 +64,7 @@ export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = f
   return {
     readSchedule(source: ScheduleSource) {
       const user = [source.text ? `Timetable:\n${source.text}` : 'The timetable is in the photo.'];
-      if (source.instructions) user.push(`Publisher's instructions: ${source.instructions}`);
+      if (source.instructions) user.push(`The student's instructions: ${source.instructions}`);
       return ask(
         [
           { role: 'system', content: SCHEDULE_PROMPT },

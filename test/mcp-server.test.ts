@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { handle } from '../mcp-server/server';
+import { handle, mcpActor } from '../mcp-server/server';
 import * as entries from '../src/data/entries';
 import { addNote, getWeek } from '../src/services/schedule';
 import { createPlan } from '../src/services/plans';
@@ -49,6 +49,12 @@ describe('MCP tools', () => {
       [18, 6, 'Отменено'],
       [18, null, 'Задължителна'],
     ]);
+  });
+
+  test('an admin\'s MCP_TOKEN is refused: the server acts only for a student', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await mcpActor('t', async () => ({ id: 'a', role: 'admin' }))).toBeNull();
+    expect(await mcpActor('t', async () => ana)).toEqual(ana);
   });
 
   test('without a valid MCP_TOKEN every project tool is refused like a visitor', async () => {

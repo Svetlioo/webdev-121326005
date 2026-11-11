@@ -4,7 +4,7 @@ Read this file at the start of every session. Keep it short and correct; update 
 
 ## Project
 <!-- One or two sentences: what the app does and for whom. Link SPEC.md. -->
-A web app for TU Sofia students that turns the faculty's weekly schedule (published as HTML pages, photos or PDFs) into a week view for each group, with notes on classes and a personal plan built by a local model. Publishers import and publish schedule versions; students read them.
+A web app for TU Sofia students: each student keeps their own plans. A plan holds their timetable (imported from the faculty's page and/or a photo by a local model, or copied from a sample), their group and per-subject group choices, personal instructions, and a chat with the model; every class in a week calendar is labelled "can attend", "needs time off" or "email the teacher". Plans can be shared read-only; an admin sees every plan.
 See `SPEC.md` for goals, non-goals and acceptance criteria.
 
 ## Commands
@@ -12,7 +12,6 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Install: `npm install`, then once `cp .env.example .env`
 - Run: `npm run db:up && npm run db:setup && npm run dev`, then open http://localhost:3000 (PostgreSQL in Docker on port 5433)
 - Google sign-in (optional locally): create an OAuth client (Web application) at console.cloud.google.com, add the redirect URI `http://localhost:3000/api/auth/callback/google` (and the Render one later), and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. Without them the app works and "Вход с Google" says it is not set up.
-- Make a publisher: `npm run make-publisher -- someone@example.com` (after they have signed up)
 - Make the first admin: `npm run make-admin -- someone@example.com`; after that an admin gives roles on /admin/users
 - Import worker (on the laptop, next to Ollama): `npm run worker`
 - Test: `npm test`
@@ -29,7 +28,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
   - `src/data/` the only place that writes SQL, one file per table group.
   - `src/auth.ts` the Better Auth configuration. Better Auth writes its own tables (`user`, `session`, `account`, `verification`): the one exception to "only `src/data/` writes SQL".
   - `src/model/` the model client (`client.ts`) and the only file that names the provider (`ollama.ts`), with the fallback for no model.
-  - `src/worker/` the background import job. It calls `processNextImport` in `src/services/imports.ts`, the one service function with no actor: the publisher was checked when the import was queued.
+  - `src/worker/` the background import job. It calls `processNextImport` in `src/services/imports.ts` and `processNextPlan` in `src/services/plans.ts`, the service functions with no actor: the plan's owner was checked when the job was queued.
   - `db/migrations/NNN_name.sql` the tables, one numbered file per change, applied once each by `npm run db:setup`. Never edit one that has run: add a new file. `db/seed/` seed data.
   - `test/` Vitest tests, mirroring `src/`.
 - Naming: files in kebab-case, functions and variables in camelCase, tables plural and columns in snake_case.
@@ -62,7 +61,7 @@ that talks to the database directly is a second, unguarded way into your data: n
 - The model is local (Ollama, `qwen3.8:27b-mlx`), so there is no key. It is configured by `OLLAMA_URL`, `MODEL_NAME` and `MODEL_TIMEOUT_MS`; an empty `OLLAMA_URL` (as on Render) means "no model" and goes straight to the fallback.
 - Every call has a timeout and a deterministic fallback, so the app still works when the provider is down or rate-limited.
 - The model's output is re-checked against real data before anything is saved or shown.
-- Model calls for imports run only in the worker (`src/worker/`), never inside an HTTP request.
+- Model calls (imports and plans) run only in the worker (`src/worker/`), never inside an HTTP request.
 - Tests never call the provider: they pass in a fake client.
 
 ## The MCP server
