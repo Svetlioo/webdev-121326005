@@ -72,6 +72,18 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 ## Architecture
 <!-- Exercise 3. One request traced through every layer, naming the file for each one,
      plus one place where your own code does not match this layering. -->
+One request: a publisher marks the Saturday КЗ lab of 222 as "Отменено" for week 6 (AC-7).
+
+1. UI: `app/week/note-form.tsx` (client component) sends `POST /api/notes` with `{ entryId, week, text }`.
+2. Route handler: `app/api/notes/route.ts` reads the JSON body and asks `getActor()` in `app/session.ts` who is calling.
+3. Authentication: `actorFromHeaders` in `src/auth.ts` lets Better Auth check the session cookie against the `session` table and returns `{ id, role }`, or null.
+4. Service: `addNote` in `src/services/schedule.ts` refuses anyone who is not a publisher (403), checks the text (1–500 characters) and the week (1–15), and that the class exists (404). It knows nothing about HTTP.
+5. Data access: `entryExists` in `src/data/entries.ts` and `insertNote` in `src/data/notes.ts` are the only places with SQL.
+6. Database: the `notes` table from `db/migrations/002_notes_imports.sql`. The route turns the result into 201, or an `AppError` into its status with a Bulgarian `{ "error": ... }` through `errorResponse`.
+
+The second front door: the MCP tool `add_class_note` in `mcp-server/server.ts` resolves `MCP_TOKEN` through the same `src/auth.ts` (Better Auth `bearer` plugin) and calls the same `addNote`, so a student gets the same refusal.
+
+Where my code does not match the layering: `processNextImport` in `src/services/imports.ts` is a service function with no actor, because only the worker (`src/worker/index.ts`) calls it and the publisher was checked when the import was queued. It also fetches the schedule page itself (`fetchPage`), so this service does network I/O instead of only holding rules. Server Components such as `app/week/page.tsx` call services directly, without a route handler, which AGENTS.md allows.
 
 ## Acceptance criteria
 <!-- Every criterion carries an id. A test proves it by naming that id in its title, for example
@@ -100,11 +112,11 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 | --- | --- |
 | AC-1 | `test/services/week.test.ts`: "AC-1 group 222 sees the УП lab on Monday 13:45 in 705 in week 3, not in week 4 (even) or week 1 (before it starts)" |
 | AC-2 | `test/services/week.test.ts`: "AC-2 group 221а does not see the Wednesday ПИ lab in week 1, and sees it in room 1211 in week 3" |
-| AC-3 |  |
-| AC-4 |  |
-| AC-5 |  |
+| AC-3 | `test/services/imports.test.ts`: "AC-3 a publisher who imports a photo sees "queued" at once, then "ready", and entries change only on Publish" |
+| AC-4 | `test/services/imports.test.ts`: "AC-4 when the model does not answer in time the import fails with the message, and nothing is published"; `test/model/ollama.test.ts`: "AC-4 a model that never answers is stopped by the timeout" |
+| AC-5 | `test/services/imports.test.ts`: "AC-5 a class at a time that is not a TU Sofia period, or for a group that does not exist, is invalid and blocks Publish" |
 | AC-7 | `test/services/week.test.ts`: "AC-7 a publisher who adds "Отменено" to the Saturday КЗ lab of 222 for week 6 cancels it in week 6 only" |
-| AC-10 |  |
+| AC-10 | `test/services/imports.test.ts`: "AC-10 a student who starts an import gets 403 and no row is added to imports" |
 | AC-12 | `test/services/week.test.ts`: "AC-12 searching for "1211" lists the ПИ labs on Wednesday and Thursday and the КЗ lab on Saturday, and nothing else" |
 | AC-13 | `test/services/week.test.ts`: "AC-13 free rooms on Monday 07:30–10:15 in week 3 do not include 1216, where the ОИТ lecture is" |
 | AC-14 | `test/mcp-server.test.ts`: "AC-14 get_my_week with a student token for week 3 returns the same classes as the week view" and "AC-14 add_class_note called by a student is refused and no note is added" |
@@ -120,6 +132,10 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 - Reinterpreted: AC-16 says "read from the `entries` table"; the test replaces the data layer, so it proves the rule (signed in, sorted by day and time) and the database part was checked by hand.
 - Missed: the overall coverage gate (80%) is not met yet, because `src/data/` has no tests against a real database. The service layer is at 100%.
 - Spec changes because of the build: the Auth section no longer says bcrypt and our own `sessions` table. Sign-in uses Better Auth, which hashes with scrypt and keeps sessions in its own `session` table. The Google linking rule was tightened to lecture 7 (link only while signed in, match on `sub`), which changed the old AC-11 (now listed as later, below).
+- Exercise 3, passed: AC-1, AC-2, AC-7, AC-12 and AC-13 (week view), AC-14 (MCP), AC-3, AC-4, AC-5 and AC-10 (import). Each has a unit test, and each was also checked by a Playwright script against the running app and the local database. The import checks used the real worker with a fake Ollama (one that answers with an invalid class, one that never answers), not the real Qwen model.
+- Exercise 3, reinterpreted: AC-5 says "fixed or removed"; only removing a class is built, there is no edit form. The AC-4 message tells the publisher to "enter the classes by hand", but there is no form for that yet.
+- Exercise 3, not built: importing from a PDF (only a page address or a photo). Publishing replaces every class, so notes on the old classes are dropped (keeping versions is later).
+- Exercise 3, spec changes: `get_my_week` takes the group as an argument, because there is no subscription to a group; any signed-in user may read any group, the same as the week view.
 - Moved out of Exercise 3, to keep the project small (still wanted, not built yet). They are no longer in the acceptance criteria above, so no test names them:
   - [later, was AC-6] When a publisher publishes a new version, students see the new classes, the previous version stays in `schedule_versions` with status `superseded`, and students' personal instructions are kept.
   - [later, was AC-8] A student in group 222 who writes "Работя от 9:00 до 16:30 в делничните дни" sees the Monday КЗ lecture at 16:45 and the Saturday КЗ lab marked "can attend", and no class between 9:00 and 16:30 on a weekday marked "can attend".

@@ -12,6 +12,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Install: `npm install`, then once `cp .env.example .env`
 - Run: `npm run db:up && npm run db:setup && npm run dev`, then open http://localhost:3000 (PostgreSQL in Docker on port 5433)
 - Make a publisher: `npm run make-publisher -- someone@example.com` (after they have signed up)
+- Import worker (on the laptop, next to Ollama): `npm run worker`
 - Test: `npm test`
 - Coverage: `npm run coverage`
 - MCP server: `npm run mcp`
@@ -25,8 +26,8 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
   - `src/services/` business rules, one file per area (`schedule.ts`, ...).
   - `src/data/` the only place that writes SQL, one file per table group.
   - `src/auth.ts` the Better Auth configuration. Better Auth writes its own tables (`user`, `session`, `account`, `verification`): the one exception to "only `src/data/` writes SQL".
-  - `src/model/` the model client and its fallback (later).
-  - `src/worker/` the background import job (later).
+  - `src/model/` the model client (`client.ts`) and the only file that names the provider (`ollama.ts`), with the fallback for no model.
+  - `src/worker/` the background import job. It calls `processNextImport` in `src/services/imports.ts`, the one service function with no actor: the publisher was checked when the import was queued.
   - `db/migrations/NNN_name.sql` the tables, one numbered file per change, applied once each by `npm run db:setup`. Never edit one that has run: add a new file. `db/seed/` seed data.
   - `test/` Vitest tests, mirroring `src/`.
 - Naming: files in kebab-case, functions and variables in camelCase, tables plural and columns in snake_case.
