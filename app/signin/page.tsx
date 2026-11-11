@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +11,19 @@ import { authClient } from '@/src/auth-client';
 import { authMessage } from '@/src/auth-messages';
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [error, setError] = useState('');
+  // After a refused Google sign-in, Better Auth sends the person back here with ?error=...
+  const googleError = useSearchParams().get('error');
+  const [error, setError] = useState(googleError ? authMessage(googleError) : '');
   const [busy, setBusy] = useState(false);
   const signingIn = mode === 'signin';
 
@@ -31,6 +41,12 @@ export default function SignInPage() {
     if (error) return setError(authMessage(error.code));
     router.push('/week');
     router.refresh();
+  }
+
+  async function withGoogle() {
+    setError('');
+    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/week', errorCallbackURL: '/signin' });
+    if (error) setError(authMessage(error.code));
   }
 
   return (
@@ -85,6 +101,14 @@ export default function SignInPage() {
                 }}
               >
                 {signingIn ? 'Нямате профил? Регистрирайте се' : 'Имате профил? Влезте'}
+              </Button>
+              <div className="flex w-full items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                или
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <Button type="button" variant="outline" size="lg" className="w-full" onClick={withGoogle}>
+                Вход с Google
               </Button>
             </CardFooter>
           </form>

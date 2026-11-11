@@ -65,3 +65,42 @@ describe('MCP_TOKEN', () => {
     expect(await actorFromToken('not-a-session-token', auth)).toBeNull();
   });
 });
+
+describe('Google sign-in', () => {
+  const google = { GOOGLE_CLIENT_ID: 'test-client-id', GOOGLE_CLIENT_SECRET: 'test-client-secret' };
+  const withEnv = (env: Record<string, string>) =>
+    createAuth(memoryAdapter({ user: [], session: [], account: [], verification: [] }), env);
+
+  test('sends the person to Google with state and PKCE, and comes back to our callback', async () => {
+    const { url } = await withEnv(google).api.signInSocial({ body: { provider: 'google', callbackURL: '/week' } });
+    const to = new URL(url!);
+    expect(to.host).toBe('accounts.google.com');
+    expect(to.searchParams.get('client_id')).toBe('test-client-id');
+    expect(to.searchParams.get('state')).toBeTruthy();
+    expect(to.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(to.searchParams.get('redirect_uri')).toMatch(/\/callback\/google$/);
+  });
+
+  test('without GOOGLE_CLIENT_ID there is no Google sign-in, and the page says so', async () => {
+    await expect(withEnv({}).api.signInSocial({ body: { provider: 'google', callbackURL: '/week' } })).rejects.toMatchObject({
+      body: { code: 'PROVIDER_NOT_FOUND' },
+    });
+    expect(authMessage('PROVIDER_NOT_FOUND')).toBe('Входът с Google не е настроен.');
+  });
+
+  test('a Google sign-in with the email of a password account is refused with the spec message', () => {
+    // Better Auth refuses it (disableImplicitLinking) and redirects with ?error=account_not_linked.
+    expect(withEnv(google).options.account?.accountLinking?.disableImplicitLinking).toBe(true);
+    expect(authMessage('account_not_linked')).toBe('Влезте с паролата си и свържете Google от профила');
+  });
+
+  test('an email Google has not verified is refused; a verified one and a password sign-up pass', async () => {
+    const validate = withEnv(google).options.user!.validateUserInfo!;
+    const oauth = { method: 'oauth', oauth: { providerId: 'google', profile: {} } } as const;
+    const user = (emailVerified: boolean) => ({ email: 'a@example.com', emailVerified, name: 'a' });
+    expect(await validate({ user: user(false), source: oauth } as never)).toEqual({ error: 'email_not_verified' });
+    expect(await validate({ user: user(true), source: oauth } as never)).toBeUndefined();
+    expect(await validate({ user: user(false), source: { method: 'email' } } as never)).toBeUndefined();
+    expect(authMessage('email_not_verified')).toContain('Google не е потвърдил');
+  });
+});

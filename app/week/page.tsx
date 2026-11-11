@@ -9,6 +9,8 @@ import { SignOutButton } from '@/app/schedule/buttons';
 import type { Entry } from '@/src/data/entries';
 import { AppError } from '@/src/services/errors';
 import { findFreeRooms, getWeek, LAST_WEEK, listClasses, searchClasses } from '@/src/services/schedule';
+import { authMessage } from '@/src/auth-messages';
+import { LinkGoogleButton } from './link-google';
 import { NoteForm } from './note-form';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
@@ -55,12 +57,20 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
               Цялото разписание
             </Link>
           </nav>
-          <SignOutButton />
+          <div className="flex items-center gap-1">
+            <LinkGoogleButton />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
       <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
         <h1 className="text-2xl font-semibold tracking-tight">Моята седмица</h1>
+        {p.error && (
+          <Alert variant="destructive">
+            <AlertDescription>{authMessage(param(p, 'error'))}</AlertDescription>
+          </Alert>
+        )}
 
         <form className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4">
           <label className="grid gap-1 text-sm">
