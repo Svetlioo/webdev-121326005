@@ -12,7 +12,7 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 - A student picks a schedule, their group and a week number, and sees exactly which classes happen that week, when and in which room, with odd and even weeks and each course's start week already applied.
 - A publisher imports the latest version of a schedule from an HTML page, a photo or a PDF. The local model turns it into a draft, and the publisher reviews and publishes it. (Later: keeping earlier versions.)
 - A publisher adds notes to a class, such as "cancelled in week 6", "this lecture is mandatory" or "the teacher allows two missed labs", and students see them on that class.
-- (Later, not in Exercise 3) A student writes their own constraints in plain words, such as work hours and meetings, and gets a plan that marks every class as "can attend", "needs time off" or "email the teacher".
+- A student makes their own plan, like a small project: they add sources (instructions in plain words, such as work hours and meetings, and photos, such as a shift rota), talk to the model in a chat, share the plan read-only with other students, and get a plan that marks every class as "can attend", "needs time off" or "email the teacher".
 - Anyone signed in can search the schedule by course, room or group, and find the rooms that are free at a given time.
 
 ## Non-goals
@@ -37,17 +37,17 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
      Name three things or the check fails: the input it receives, the output it produces,
      and what happens when the model is slow, rate-limited or wrong. -->
 - Model: Qwen3.8-27B (https://huggingface.co/Qwen/Qwen3.8-27B), tag `qwen3.8:27b-mlx`, run locally through Ollama on my laptop. Chosen because it reads both text and images, scores 91.1 on OmniDocBench (document reading), fits in 64 GB, and keeps every schedule and personal instruction on my machine.
-- Input: for an import, the source of one schedule version (the text of an HTML page, a photo or a rendered PDF page) plus the publisher's extra instructions. For a plan (later), the student's classes for the week, the notes on those classes, and the student's own instructions in plain words.
-- Output: for an import, a list of draft classes (course, type, groups, day, start and end time, room, odd/even/every week, start week) as JSON. For a plan (later), the student's time windows as JSON, and for each class a label: "can attend", "needs time off" or "email the teacher", with a one-line reason.
+- Input: for an import, the source of one schedule version (the text of an HTML page, a photo or a rendered PDF page) plus the publisher's extra instructions. For a plan, the plan's sources (instructions in plain words and photos) and the chat messages.
+- Output: for an import, a list of draft classes (course, type, groups, day, start and end time, room, odd/even/every week, start week) as JSON. For a plan, the student's busy time windows (day, from, to, what) and a short reply for the chat, as JSON that must match a schema (structured output, the same for imports). The label of each class ("can attend", "needs time off" or "email the teacher") is computed by the server from those windows, not chosen by the model.
 - Data that leaves the app: none. Every model call goes to localhost.
-- When it fails: each call has a 120-second timeout and runs in a background job, so nobody waits on a frozen screen. If the model is down, times out or returns something that is not valid JSON, the import is marked `failed` with the reason, and the publisher can retry or enter the classes by hand. The last published version stays visible. The server re-checks every draft class against real data (one of the 14 TU Sofia periods, Monday to Saturday, a group that exists in the schedule), and an invalid class cannot be published. For a plan (later), the fallback is a plain overlap check between the classes and the student's saved time windows, labelled "computed without the model". A class that overlaps a work window is never shown as "can attend", whatever the model says.
+- When it fails: each call has a 120-second timeout and runs in a background job, so nobody waits on a frozen screen. If the model is down, times out or returns something that is not valid JSON, the import is marked `failed` with the reason, and the publisher can retry or enter the classes by hand. The last published version stays visible. The server re-checks every draft class against real data (one of the 14 TU Sofia periods, Monday to Saturday, a group that exists in the schedule), and an invalid class cannot be published. For a plan, the windows are first read from the instructions by a plain parser (times like "9:00 до 16:30" and day words like "делничните дни"), so the plan works at once and with no model at all, labelled "Изчислено без модела"; the model's windows replace them when the worker has run. An answer that does not match the schema is rejected and the parser's windows stay. A class that overlaps a work window is never shown as "can attend", whatever the model says.
 
 ## Auth
 <!-- Local sign-in plus at least one provider. Say how an account signing in both ways stays one account. -->
 - Local: email and password through Better Auth, with the password hashed (scrypt). Sessions are rows in the `session` table keyed by a random token in a cookie that is `HttpOnly`, `Secure` in production, `SameSite=Lax` and has a `Max-Age`, so signing out takes effect on the next request.
 - Provider: Google sign-in (OAuth 2.0 / OpenID Connect, with `state` and PKCE). A returning Google user is matched on Google's `sub`, never on the email.
 - Linking: a Google account is linked to a password account only while the user is signed in with their password and presses "Свържи Google", and only if Google reports the email as verified. If someone signs in with Google and a password account with the same email already exists, no second account is created: they are told to sign in with their password first and connect Google from there. If Google does not report the email as verified, the sign-in is refused.
-- Roles: `student` (the default) and `publisher` (imports, reviews and publishes schedules, adds notes to classes). Only a publisher can make another user a publisher.
+- Roles: `student` (the default), `publisher` (a student who imports, reviews and publishes the schedule for everyone and adds notes to classes) and `admin` (everything a publisher may do, and gives or takes roles). Only an admin can change a user's role. On a plan: its `owner` (may change, share and delete it) and the `readers` it is shared with (may only read it).
 
 ## MCP tools
 <!-- At least three tools your own MCP server exposes over this project's data.
@@ -66,7 +66,8 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 - Screens:
   1. Sign in / sign up: email and password, or Google.
   2. Week view: pick a schedule, a group and a week number, see that week's classes with notes, search by course, room or group, and find free rooms.
-  3. (Later) My plan: write personal instructions, confirm the time windows the model read from them, and see every class labelled "can attend", "needs time off" or "email the teacher", marked as a suggestion.
+  3. My plans: a list of my plans and the plans shared with me. One plan is a page with its sources (instructions and photos) on the left, a chat with the model, and the week calendar with every class labelled "can attend", "needs time off" or "email the teacher", marked as a suggestion; the owner shares it by email.
+  5. Users (admins only): every user with their role, and a way to change it.
   4. Imports (publishers only): start an import from a URL, a photo or a PDF, follow its status (queued, processing, ready for review, failed), review and correct the draft classes, and publish.
 
 ## Architecture
@@ -106,6 +107,14 @@ Where my code does not match the layering: `processNextImport` in `src/services/
 - [AC-17] A student who signs in with a wrong password sees "Грешен имейл или парола", and no session cookie is set.
 - [AC-18] A publisher who deletes a class from the list no longer sees it after a reload, and its row is gone from `entries`; a student sees no delete button, and a `DELETE` request from a student gets 403 and removes nothing.
 
+### Slice 2: my plan, sharing and roles
+- [AC-8] A student in group 222 who creates a plan and adds the instruction "Работя от 9:00 до 16:30 в делничните дни" sees, in week 4, the Monday КЗ lecture at 16:45 and the Saturday КЗ lab marked "Може да присъства", and no class between 9:00 and 16:30 on a weekday marked so.
+- [AC-9] With no model running, the student from AC-8 gets the same labels right after adding the instruction, marked "Изчислено без модела", and the plan waits for the worker with `model_status` = `queued`.
+- [AC-19] The owner of a plan who shares it with another student's email makes it appear under that student's "Споделени с мен"; that student can read it, and when they add a source or a message they get 403 and no row is added.
+- [AC-20] A student who opens or changes a plan that is neither theirs nor shared with them gets 403, and somebody who is not signed in gets 401; deleting someone else's plan gets 403 and the plan stays.
+- [AC-21] An admin who makes a student a publisher changes that user's `role`; a publisher or a student who sends the same request gets 403 and the role stays the same.
+- [AC-22] When the model answers a plan with something that does not match the schema (such as day 9 or "25:00"), the answer is rejected, the plan's `model_status` becomes `failed`, and the plan keeps the windows computed without the model.
+
 ## Traceability
 <!-- Filled in from Exercise 3 onward: each AC id, and the test that names it. -->
 | Criterion | Test |
@@ -124,6 +133,12 @@ Where my code does not match the layering: `processNextImport` in `src/services/
 | AC-16 | `test/services/schedule.test.ts`: "AC-16 a signed-in student gets the classes from entries, sorted by day and time" |
 | AC-17 | `test/auth.test.ts`: "AC-17 a wrong password is refused with "Грешен имейл или парола" and no session is created" |
 | AC-18 | `test/services/schedule.test.ts`: "AC-18 a publisher deletes a class..." and "AC-18 a student who tries to delete a class gets 403..." |
+| AC-8 |  |
+| AC-9 |  |
+| AC-19 |  |
+| AC-20 |  |
+| AC-21 |  |
+| AC-22 |  |
 
 ## Spec vs result
 <!-- After the agent builds the slice: which criteria passed, which it missed or reinterpreted, and what you changed in this spec because of it. -->
@@ -139,6 +154,4 @@ Where my code does not match the layering: `processNextImport` in `src/services/
 - Exercise 3, spec changes: `get_my_week` takes the group as an argument, because there is no subscription to a group; any signed-in user may read any group, the same as the week view.
 - Moved out of Exercise 3, to keep the project small (still wanted, not built yet). They are no longer in the acceptance criteria above, so no test names them:
   - [later, was AC-6] When a publisher publishes a new version, students see the new classes, the previous version stays in `schedule_versions` with status `superseded`, and students' personal instructions are kept.
-  - [later, was AC-8] A student in group 222 who writes "Работя от 9:00 до 16:30 в делничните дни" sees the Monday КЗ lecture at 16:45 and the Saturday КЗ lab marked "can attend", and no class between 9:00 and 16:30 on a weekday marked "can attend".
-  - [later, was AC-9] When the model is unavailable, the student from AC-8 still gets a plan from their saved time windows, labelled "Изчислено без модела", with the same "can attend" classes.
   - [later, was AC-11] A student signed in with their password who presses "Свържи Google" and signs in with a Google account with the same verified email can afterwards sign in with Google into that same account, and no second row appears in `users`. Someone who is not signed in and signs in with Google using the email of an existing password account sees "Влезте с паролата си и свържете Google от профила", and no row is added to `users`.
