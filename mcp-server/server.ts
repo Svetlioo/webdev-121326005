@@ -7,7 +7,7 @@ import readline from 'node:readline';
 import { actorFromToken, type Actor } from '../src/auth';
 import { closeDb } from '../src/data/db';
 import { AppError } from '../src/services/errors';
-import { addNote, findFreeRooms, getWeek, searchClasses } from '../src/services/schedule';
+import { addNote, getWeek, searchClasses } from '../src/services/schedule';
 
 type Message = { jsonrpc: '2.0'; id?: number | string; method: string; params?: any };
 
@@ -39,7 +39,7 @@ export const tools = [
   {
     name: 'get_my_week',
     description:
-      "Returns the classes of one of the caller's plans for a week number (1-15): day, time, room, notes and whether a class is cancelled, for the plan's group, with odd/even weeks and start weeks applied, the same as the plan page.",
+      "Returns the classes of one of the caller's plans for a week number (1-15): day, time, room, notes and whether a class is cancelled, for the subjects and groups the plan follows, with odd/even weeks and start weeks applied, the same as the plan page.",
     inputSchema: {
       type: 'object',
       properties: { plan_id: integer('The id of a plan the caller owns or that is shared with them'), week: integer('Week of the semester, 1 to 15') },
@@ -53,21 +53,6 @@ export const tools = [
       type: 'object',
       properties: { plan_id: integer('The id of the plan'), query: string('Course, room or group, for example ПИ, 1211 or 222') },
       required: ['plan_id', 'query'],
-    },
-  },
-  {
-    name: 'find_free_rooms',
-    description: "Lists the rooms from the timetable of one of the caller's plans that have no class on a given day and time range in a given week.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        plan_id: integer('The id of the plan'),
-        day: integer('1 = Monday ... 6 = Saturday'),
-        from: string('Start time, HH:MM, for example 07:30'),
-        to: string('End time, HH:MM, for example 10:15'),
-        week: integer('Week of the semester, 1 to 15'),
-      },
-      required: ['plan_id', 'day', 'from', 'to', 'week'],
     },
   },
   {
@@ -134,10 +119,6 @@ export async function handle(msg: Message, actor: Actor | null) {
     }
     if (name === 'search_classes') {
       return callService(msg.id, () => searchClasses(actor, Number(args.plan_id), String(args.query ?? '')));
-    }
-    if (name === 'find_free_rooms') {
-      const query = { day: Number(args.day), from: String(args.from ?? ''), to: String(args.to ?? ''), week: Number(args.week) };
-      return callService(msg.id, () => findFreeRooms(actor, Number(args.plan_id), query));
     }
     if (name === 'add_class_note') {
       const note = { entryId: Number(args.entry_id), week: args.week == null ? null : Number(args.week), text: String(args.text ?? '') };

@@ -10,9 +10,9 @@ import { buttonVariants } from '@/components/ui/button';
 import { AppError } from '@/src/services/errors';
 import { listImports } from '@/src/services/imports';
 import { getPlan } from '@/src/services/plans';
-import { LAST_WEEK, listClasses } from '@/src/services/schedule';
+import { LAST_WEEK } from '@/src/services/schedule';
 import { LABELS } from '@/src/services/windows';
-import { AddSource, ChatInput, DeletePlanButton, GroupPicker, RemoveButton, ShareDialog } from '../plan-actions';
+import { AddSource, ChatInput, DeletePlanButton, RemoveButton, ShareDialog, SubjectsPanel } from '../plan-actions';
 
 const DAYS = ['', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб'];
 const IMPORT_STATUS = { queued: 'в опашката', processing: 'моделът чете', ready: 'готово за преглед', failed: 'неуспешно', published: 'публикувано' };
@@ -44,9 +44,8 @@ export default async function PlanPage({ params, searchParams }: Props) {
     }
     throw error;
   }
-  const { plan, isOwner, canEdit, sources, messages, shares, classes } = view;
+  const { plan, isOwner, canEdit, sources, messages, shares, subjects, groups: timetableGroups, classes } = view;
   const imports = canEdit ? await listImports(actor, plan.id) : [];
-  const timetableGroups = [...new Set((await listClasses(actor, plan.id)).flatMap((c) => c.groups.map((g) => g.name)))].sort();
   const importing = imports.some((i) => i.status === 'queued' || i.status === 'processing');
   const thinking = plan.modelStatus === 'queued' || plan.modelStatus === 'processing';
   const weekHref = (w: number) => `/plans/${plan.id}?week=${w}`;
@@ -63,7 +62,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">{plan.name}</h1>
             <span className="flex flex-wrap gap-1">
-              <Badge variant="secondary">{plan.groups.length ? `групи ${plan.groups.join(', ')}` : 'без избрани групи'}</Badge>
+              <Badge variant="secondary">{plan.myGroup ? `група ${plan.myGroup}` : 'без избрана група'}</Badge>
               {isOwner ? (
                 <Badge variant="outline">ваша</Badge>
               ) : canEdit ? (
@@ -122,14 +121,26 @@ export default async function PlanPage({ params, searchParams }: Props) {
               )}
             </section>
 
+            {timetableGroups.length > 0 && (
+              <section aria-labelledby="subjects-title" className="grid gap-3 rounded-lg border bg-background p-4">
+                <h2 id="subjects-title" className="text-sm font-medium">
+                  Моята група и предмети
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Предметите на вашата група са с нея. Може да ходите на предмет с друга група, която го има, или да го махнете.
+                </p>
+                <SubjectsPanel planId={plan.id} groups={timetableGroups} myGroup={plan.myGroup} subjects={subjects} disabled={!canEdit} />
+              </section>
+            )}
+
             <section aria-labelledby="sources-title" className="grid gap-3 rounded-lg border bg-background p-4">
               <h2 id="sources-title" className="text-sm font-medium">
-                Източници
+                Лични инструкции
               </h2>
               {canEdit && <AddSource planId={plan.id} />}
               {sources.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {canEdit ? 'Добавете работното си време, срещи или снимка на график.' : 'Няма източници.'}
+                  {canEdit ? 'Напишете работното си време, срещи, с коя група ходите на кой предмет, или качете снимка на график.' : 'Няма инструкции.'}
                 </p>
               ) : (
                 <ul className="grid gap-2">
@@ -152,9 +163,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
               <h2 id="windows-title" className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
                 Заети часове
                 {plan.windowsFrom === 'parser' ? (
-                  <Badge variant="outline">Изчислено без модела</Badge>
+                  <Badge variant="outline">Приблизително, без AI</Badge>
                 ) : (
-                  <Badge variant="secondary">от модела</Badge>
+                  <Badge variant="secondary">от AI</Badge>
                 )}
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -188,7 +199,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
               </h2>
               {messages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {canEdit ? 'Опишете седмицата си с думи. Моделът ще извади заетите ви часове.' : 'Няма съобщения.'}
+                  {canEdit ? 'Пишете свободно: моделът може да промени личните ви инструкции, предметите и заетите часове.' : 'Няма съобщения.'}
                 </p>
               ) : (
                 <ol className="grid max-h-72 gap-2 overflow-y-auto">
@@ -206,15 +217,6 @@ export default async function PlanPage({ params, searchParams }: Props) {
               {canEdit && <ChatInput planId={plan.id} />}
             </section>
 
-            {timetableGroups.length > 0 && (
-              <section aria-labelledby="groups-title" className="grid gap-2 rounded-lg border bg-background p-4">
-                <h2 id="groups-title" className="text-sm font-medium">
-                  С кои групи ходите
-                </h2>
-                <p className="text-xs text-muted-foreground">Вашата група и, ако ходите на някое занятие с друга, и нея.</p>
-                <GroupPicker planId={plan.id} groups={timetableGroups} chosen={plan.groups} disabled={!canEdit} />
-              </section>
-            )}
 
             <section aria-labelledby="plan-week-title" className="rounded-lg border bg-background">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
@@ -246,9 +248,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
                 <p className="p-4 text-sm text-muted-foreground">
                   {timetableGroups.length === 0
                     ? 'Програмата още няма разписание. Внесете го от „Разписание“ (линк, снимка или и двете).'
-                    : plan.groups.length === 0
-                      ? 'Изберете с кои групи ходите (над календара).'
-                      : 'Няма занятия за избраните групи тази седмица.'}
+                    : !plan.myGroup
+                      ? 'Изберете групата си в „Моята група и предмети“.'
+                      : 'Няма занятия тази седмица.'}
                 </p>
               ) : (
                 <>

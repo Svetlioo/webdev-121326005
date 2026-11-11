@@ -49,8 +49,8 @@ export function installFakes(): Store {
 
   vi.mocked(users.findUserIdByEmail).mockImplementation(async (email) => (/^(ana|boris|vera|admin)@test\.bg$/.test(email) ? email.split('@')[0] : null));
 
-  vi.mocked(plans.insertPlan).mockImplementation(async (ownerId, name, groups) => {
-    db.plans.push({ id: db.plans.length + 1, ownerId, ownerEmail: `${ownerId}@test.bg`, name, groups, windows: [], windowsFrom: 'parser', modelStatus: 'idle' });
+  vi.mocked(plans.insertPlan).mockImplementation(async (ownerId, name, myGroup) => {
+    db.plans.push({ id: db.plans.length + 1, ownerId, ownerEmail: `${ownerId}@test.bg`, name, myGroup, subjects: {}, windows: [], windowsFrom: 'parser', modelStatus: 'idle' });
     return db.plans.length;
   });
   vi.mocked(plans.findPlan).mockImplementation(async (id) => structuredClone(db.plans.find((p) => p.id === id) ?? null));
@@ -60,15 +60,24 @@ export function installFakes(): Store {
   }));
   vi.mocked(plans.listOtherPlans).mockImplementation(async (userId) => db.plans.filter((p) => p.ownerId !== userId));
   vi.mocked(plans.isSharedWith).mockImplementation(async (planId, userId) => db.shares.some((s) => s.planId === planId && s.userId === userId));
-  vi.mocked(plans.setGroups).mockImplementation(async (id, groups) => void (plan(id).groups = groups));
+  vi.mocked(plans.setMyGroup).mockImplementation(async (id, group) => void (plan(id).myGroup = group));
+  vi.mocked(plans.setSubjects).mockImplementation(async (id, subjects) => void (plan(id).subjects = subjects));
   vi.mocked(plans.deletePlan).mockImplementation(async (id) => void (db.plans = db.plans.filter((p) => p.id !== id)));
   vi.mocked(plans.saveWindows).mockImplementation(async (id, windows, from, status) => {
     Object.assign(plan(id), { windows, windowsFrom: from, modelStatus: status });
   });
-  vi.mocked(plans.finishPlan).mockImplementation(async (id, windows) => {
+  vi.mocked(plans.applyModelAnswer).mockImplementation(async (id, answer) => {
     if (plan(id).modelStatus !== 'processing') return false;
-    Object.assign(plan(id), windows ? { windows, windowsFrom: 'model', modelStatus: 'idle' } : { modelStatus: 'failed' });
+    Object.assign(plan(id), { windows: answer.windows, windowsFrom: 'model', modelStatus: 'idle' });
+    if (answer.subjects) plan(id).subjects = answer.subjects;
+    if (answer.instructions) {
+      db.sources = db.sources.filter((s) => !(s.planId === id && s.text !== null));
+      for (const text of answer.instructions) db.sources.push({ id: db.sources.length + 100, planId: id, text, imageType: null });
+    }
     return true;
+  });
+  vi.mocked(plans.failPlan).mockImplementation(async (id) => {
+    if (plan(id).modelStatus === 'processing') plan(id).modelStatus = 'failed';
   });
   vi.mocked(plans.claimNextPlan).mockImplementation(async () => {
     const next = db.plans.find((p) => p.modelStatus === 'queued');

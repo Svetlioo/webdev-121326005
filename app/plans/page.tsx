@@ -52,7 +52,7 @@ function PlanList({ title, plans, empty, shared }: { title: string; plans: Plan[
               <Link href={`/plans/${p.id}`} className="grid gap-2 rounded-lg border bg-background p-4 transition-colors hover:border-foreground/30">
                 <span className="font-medium">{p.name}</span>
                 <span className="flex flex-wrap gap-1">
-                  <Badge variant="secondary">{p.groups.length ? `групи ${p.groups.join(', ')}` : 'без избрани групи'}</Badge>
+                  <Badge variant="secondary">{p.myGroup ? `група ${p.myGroup}` : 'без избрана група'}</Badge>
                   {shared && <Badge variant="outline">{p.ownerEmail}</Badge>}
                   {p.modelStatus === 'queued' || p.modelStatus === 'processing' ? <Badge variant="outline">моделът чете…</Badge> : null}
                 </span>

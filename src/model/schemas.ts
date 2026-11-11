@@ -30,14 +30,27 @@ export const timeWindow = z
   })
   .refine((w) => w.from < w.to, 'from must be before to');
 
-/** A plan: the student's busy windows read from the sources, and a short reply for the chat. */
+/** A change of one subject: attend it with this group, or null for "not taken". */
+export const subjectChange = z.object({
+  course: z.string().min(1),
+  type: z.enum(['lecture', 'seminar', 'lab']),
+  group: z.string().nullable(),
+});
+
+/**
+ * A plan: a short reply for the chat and the student's busy windows; and, only when the student asked
+ * for it in the chat, the complete new list of personal instructions and the subjects to change.
+ */
 export const planAnswer = z.object({
   reply: z.string().min(1).max(1000),
   windows: z.array(timeWindow).max(50),
+  instructions: z.array(z.string().min(1).max(1000)).max(20).optional(),
+  subjects: z.array(subjectChange).max(30).optional(),
 });
 
 export type TimeWindow = z.infer<typeof timeWindow>;
 export type PlanAnswer = z.infer<typeof planAnswer>;
+export type SubjectChange = z.infer<typeof subjectChange>;
 
 /** The JSON Schema Ollama receives as `format`. */
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);

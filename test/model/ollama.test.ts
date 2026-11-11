@@ -64,28 +64,34 @@ describe('readPlan', () => {
       instructions: ['Работя от 9:00 до 16:30'],
       images: [{ data: Buffer.from('png'), type: 'image/png' }],
       messages: [{ role: 'user', content: 'И в събота до 12.' }],
+      myGroup: '222',
+      subjects: [{ course: 'УП', type: 'lab', groups: ['221а', '222'], chosen: '222' }],
     });
     expect(output).toEqual({ reply: 'Разбрах.', windows: [] });
     const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body));
     expect(body.format).toMatchObject({ type: 'object', required: ['reply', 'windows'] });
     expect(body.messages[1].content).toContain('Работя от 9:00 до 16:30');
+    expect(body.messages[1].content).toContain('My group: 222');
+    expect(body.messages[1].content).toContain('- УП, lab: 221а, 222; 222');
     expect(body.messages[1].images).toEqual([Buffer.from('png').toString('base64')]);
     expect(body.messages[2]).toEqual({ role: 'user', content: 'И в събота до 12.' });
   });
 
   test('without photos or instructions nothing is attached', async () => {
     const fetchMock = answer('{}');
-    await createOllamaClient({ url: 'http://m', model: 'q', timeoutMs: 1000, fetch: fetchMock }).readPlan({ instructions: [], images: [], messages: [] });
+    await createOllamaClient({ url: 'http://m', model: 'q', timeoutMs: 1000, fetch: fetchMock }).readPlan({ instructions: [], images: [], messages: [], myGroup: null, subjects: [] });
     const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body));
     expect(body.messages[1].images).toBeUndefined();
     expect(body.messages[1].content).toContain('(none)');
+    expect(body.messages[1].content).toContain('not chosen yet');
+    expect(body.messages[1].content).toContain('(no timetable yet)');
   });
 });
 
 describe('modelFromEnv', () => {
   test('without OLLAMA_URL (as on Render) the fallback fails at once instead of waiting', async () => {
     await expect(modelFromEnv({}).readSchedule(source)).rejects.toBeInstanceOf(ModelUnavailableError);
-    await expect(modelFromEnv({}).readPlan({ instructions: [], images: [], messages: [] })).rejects.toBeInstanceOf(ModelUnavailableError);
+    await expect(modelFromEnv({}).readPlan({ instructions: [], images: [], messages: [], myGroup: null, subjects: [] })).rejects.toBeInstanceOf(ModelUnavailableError);
   });
 
   test('with OLLAMA_URL it talks to Ollama', () => {

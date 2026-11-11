@@ -38,7 +38,7 @@ let lab: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
-  planId = await createPlan(ana, { name: 'Зима', groups: ['222'], fromSample: true });
+  planId = await createPlan(ana, { name: 'Зима', myGroup: '222', fromSample: true });
   await sharePlan(ana, planId, 'boris@test.bg');
   lab = db.entries.find((e) => e.course === 'КЗ' && e.day === 6 && e.startsAt === '10:30')!.id;
 });

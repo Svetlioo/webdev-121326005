@@ -1,13 +1,16 @@
-// A student's plan: their own timetable, their sources (instructions and photos), a chat with the
-// model, and who else may read it. Access rules are in src/services/access.ts.
+// A student's plan: their own timetable, their group and subject choices, their personal instructions
+// and photos, a chat with the model that may change those, and who else may read it.
+// Access rules are in src/services/access.ts.
 import type { Actor } from '../auth';
-import { insertEntries } from '../data/entries';
+import { insertEntries, listEntries, type Entry } from '../data/entries';
 import {
   addShare,
+  applyModelAnswer,
   claimNextPlan,
   deletePlan as deletePlanRow,
   deleteSource,
-  finishPlan,
+  failPlan,
+  findPlan,
   findSourceImage,
   insertMessage,
   insertPlan,
@@ -20,7 +23,8 @@ import {
   listSources,
   removeShare,
   saveWindows,
-  setGroups,
+  setMyGroup as saveMyGroup,
+  setSubjects,
   type Message,
   type Plan,
   type Share,
@@ -29,10 +33,10 @@ import {
 import { sampleTimetable } from '../data/templates';
 import { findUserIdByEmail } from '../data/users';
 import type { ModelClient } from '../model/client';
-import { planAnswer } from '../model/schemas';
+import { planAnswer, type SubjectChange } from '../model/schemas';
 import { editablePlan, isAdmin, readablePlan } from './access';
 import { AppError, requireActor } from './errors';
-import { getWeek, type WeekClass } from './schedule';
+import { getWeek, subjectKey, subjectsOf, type Subject, type WeekClass } from './schedule';
 import { labelClass, parseWindows, type Label } from './windows';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -48,14 +52,32 @@ export type PlanView = {
   sources: Source[];
   messages: Message[];
   shares: Share[];
+  subjects: Subject[];
+  groups: string[];
   classes: LabelledClass[];
 };
 
-/** Reads the windows from the instructions and messages at once, and queues the plan for the model. */
+const groupsOf = (entries: Entry[]) => [...new Set(entries.flatMap((e) => e.groups.map((g) => g.name)))].sort();
+
+/** Reads approximate busy times from the instructions at once (no AI), and queues the plan for the model. */
 async function recompute(planId: number): Promise<void> {
   const texts = (await listSources(planId)).flatMap((s) => (s.text ? [s.text] : []));
-  const said = (await listMessages(planId)).filter((m) => m.role === 'user').map((m) => m.content);
-  await saveWindows(planId, parseWindows([...texts, ...said]), 'parser', 'queued');
+  await saveWindows(planId, parseWindows(texts), 'parser', 'queued');
+}
+
+/**
+ * Subject changes as a new map of choices, if every one is possible: the subject is in the timetable
+ * and the group has it (or the change is "not taken"). Otherwise null, and nothing may be saved.
+ */
+function applyChanges(entries: Entry[], plan: Plan, changes: SubjectChange[]): Record<string, string | null> | null {
+  const subjects = subjectsOf(entries, plan);
+  const next = { ...plan.subjects };
+  for (const c of changes) {
+    const subject = subjects.find((s) => s.key === subjectKey(c));
+    if (!subject || (c.group !== null && !subject.groups.includes(c.group))) return null;
+    next[subject.key] = c.group;
+  }
+  return next;
 }
 
 /** The user's plans and the ones shared with them; an admin also sees everyone else's. */
@@ -65,35 +87,39 @@ export async function listMyPlans(actor: Actor | null): Promise<{ own: Plan[]; s
   return { own, shared, others: isAdmin(me) ? await listOtherPlans(me.id) : [] };
 }
 
-export type NewPlan = { name: string; fromSample?: boolean; groups?: string[] };
-
-/** The groups a plan follows: TU group numbers, each once, at most 10. */
-function checkGroups(groups: string[]): string[] {
-  const clean = [...new Set(groups.map((g) => g.trim()))];
-  if (clean.length > 10 || !clean.every((g) => GROUP.test(g))) throw new AppError(400, 'Групите са номера като 222 или 221а.');
-  return clean;
-}
+export type NewPlan = { name: string; fromSample?: boolean; myGroup?: string };
 
 /** A new plan for the actor. It starts empty (the student imports their timetable) or from the sample
- *  timetable; the groups are usually chosen afterwards, from the groups in the timetable. */
+ *  timetable; the group is usually chosen afterwards, from the groups in the timetable. */
 export async function createPlan(actor: Actor | null, input: NewPlan): Promise<number> {
   const me = requireActor(actor);
   const name = input.name.trim();
   if (name.length < 1 || name.length > 100) throw new AppError(400, 'Името трябва да е между 1 и 100 знака.');
-  const id = await insertPlan(me.id, name, checkGroups(input.groups ?? []));
+  if (input.myGroup !== undefined && !GROUP.test(input.myGroup)) throw new AppError(400, 'Групата е номер като 222 или 221а.');
+  const id = await insertPlan(me.id, name, input.myGroup ?? null);
   if (input.fromSample) await insertEntries(id, await sampleTimetable());
   return id;
 }
 
-/** Chooses the groups whose classes the plan shows, such as one's own group and one more for a lab. Owner or admin. */
-export async function setPlanGroups(actor: Actor | null, id: number, groups: string[]): Promise<void> {
+/** The student's own group: one of the groups in the plan's timetable. Owner or admin. */
+export async function setMyGroup(actor: Actor | null, id: number, group: string): Promise<void> {
   await editablePlan(actor, id);
-  await setGroups(id, checkGroups(groups));
+  if (!groupsOf(await listEntries(id)).includes(group)) throw new AppError(400, `Група „${group}“ я няма в разписанието.`);
+  await saveMyGroup(id, group);
 }
 
-/** Everything the plan page shows: sources, chat, shares (owner only) and the week with a label on every class. */
+/** Which group's sessions of one subject the student attends, or null for "not taken". Owner or admin. */
+export async function chooseSubject(actor: Actor | null, id: number, change: SubjectChange): Promise<void> {
+  const { plan } = await editablePlan(actor, id);
+  const next = applyChanges(await listEntries(id), plan, [change]);
+  if (!next) throw new AppError(400, `Група ${change.group} няма ${change.course} (${change.type}) в разписанието.`);
+  await setSubjects(id, next);
+}
+
+/** Everything the plan page shows: instructions, chat, shares (owner only), subjects, and the week with a label on every class. */
 export async function getPlan(actor: Actor | null, id: number, week: number): Promise<PlanView> {
   const { plan, isOwner, canEdit, actor: me } = await readablePlan(actor, id);
+  const entries = await listEntries(id);
   const classes = (await getWeek(me, id, week)).map((c) =>
     c.cancelled ? { ...c, label: null, reason: 'Занятието е отменено.' } : { ...c, ...labelClass(c, plan.windows) },
   );
@@ -104,13 +130,15 @@ export async function getPlan(actor: Actor | null, id: number, week: number): Pr
     sources: await listSources(id),
     messages: await listMessages(id),
     shares: canEdit ? await listShares(id) : [],
+    subjects: subjectsOf(entries, plan),
+    groups: groupsOf(entries),
     classes,
   };
 }
 
 export type NewSource = { text?: string; image?: Buffer; imageType?: string };
 
-/** Adds an instruction or a photo. Owner or admin. The plan is recomputed at once and queued for the model. */
+/** Adds a personal instruction or a photo. Owner or admin. Busy times are re-read at once and the plan is queued for the model. */
 export async function addSource(actor: Actor | null, id: number, input: NewSource): Promise<void> {
   await editablePlan(actor, id);
   const text = input.text?.trim() || null;
@@ -137,7 +165,7 @@ export async function getSourceImage(actor: Actor | null, id: number, sourceId: 
   return image;
 }
 
-/** A chat message to the model. Owner or admin. */
+/** A chat message to the model, which may change the instructions, the subjects and the busy times. Owner or admin. */
 export async function sendMessage(actor: Actor | null, id: number, text: string): Promise<void> {
   await editablePlan(actor, id);
   const content = text.trim();
@@ -166,27 +194,33 @@ export async function deletePlan(actor: Actor | null, id: number): Promise<void>
 }
 
 /**
- * The worker's job for plans: takes the next queued plan, asks the model for the busy windows
- * (structured output), checks the answer against the schema and saves it. A wrong answer, a timeout
- * or no model leaves the parser's windows in place and marks the plan failed. The result is saved
- * only if nobody changed the plan meanwhile; otherwise the plan stays queued for the next round.
+ * The worker's job for plans: takes the next queued plan and asks the model (structured output) for
+ * the busy times, a reply, and the changes the student asked for. The answer is checked against the
+ * schema and every subject change against the timetable; anything wrong rejects the whole answer and
+ * the plan keeps what it had. It is saved only if nobody changed the plan meanwhile.
  * No actor: the owner was checked when the plan was queued.
  */
 export async function processNextPlan(model: ModelClient): Promise<number | null> {
   const id = await claimNextPlan();
   if (id === null) return null;
-  const messages = await listMessages(id);
   try {
+    const plan = (await findPlan(id))!;
+    const entries = await listEntries(id);
     const output = await model.readPlan({
       instructions: (await listSources(id)).flatMap((s) => (s.text ? [s.text] : [])),
       images: await listSourceImages(id),
-      messages: messages.map(({ role, content }) => ({ role, content })),
+      messages: (await listMessages(id)).map(({ role, content }) => ({ role, content })),
+      myGroup: plan.myGroup,
+      subjects: subjectsOf(entries, plan).map(({ course, type, groups, chosen }) => ({ course, type, groups, chosen })),
     });
     const answer = planAnswer.safeParse(output);
     if (!answer.success) throw new Error('the answer does not match the schema');
-    if (await finishPlan(id, answer.data.windows)) await insertMessage(id, 'assistant', answer.data.reply);
+    const subjects = answer.data.subjects ? applyChanges(entries, plan, answer.data.subjects) : undefined;
+    if (subjects === null) throw new Error('a subject change is not possible');
+    const saved = await applyModelAnswer(id, { windows: answer.data.windows, subjects, instructions: answer.data.instructions });
+    if (saved) await insertMessage(id, 'assistant', answer.data.reply);
   } catch {
-    await finishPlan(id, null);
+    await failPlan(id);
   }
   return id;
 }

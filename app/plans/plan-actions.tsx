@@ -53,30 +53,62 @@ export function CreatePlanForm({ sampleTitle }: { sampleTitle: string }) {
   );
 }
 
-/** The groups whose classes the plan shows: checkboxes for the groups found in the timetable. */
-export function GroupPicker({ planId, groups, chosen, disabled }: { planId: number; groups: string[]; chosen: string[]; disabled: boolean }) {
+const TYPE = { lecture: 'лекция', seminar: 'семинар', lab: 'упражнение' } as const;
+
+/** The student's group, and for every subject which group's sessions they attend, or none. */
+export function SubjectsPanel(props: {
+  planId: number;
+  groups: string[];
+  myGroup: string | null;
+  subjects: { key: string; course: string; type: keyof typeof TYPE; groups: string[]; chosen: string | null; byDefault: boolean }[];
+  disabled: boolean;
+}) {
   const { busy, error, run } = useAction();
-  const [picked, setPicked] = useState(chosen);
-  const changed = picked.length !== chosen.length || picked.some((g) => !chosen.includes(g));
+  const patch = (body: unknown) => run(`/api/plans/${props.planId}`, json('PATCH', body));
+  const select = 'h-8 rounded-lg border border-input bg-transparent px-2 text-sm disabled:opacity-60';
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-2">
-        {groups.map((g) => (
-          <label key={g} className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm has-checked:border-foreground has-checked:bg-muted">
-            <input
-              type="checkbox"
-              checked={picked.includes(g)}
-              disabled={disabled || busy}
-              onChange={(e) => setPicked(e.target.checked ? [...picked, g] : picked.filter((x) => x !== g))}
-            />
-            {g}
-          </label>
-        ))}
-      </div>
-      {!disabled && changed && (
-        <Button size="sm" className="justify-self-start" disabled={busy} onClick={() => run(`/api/plans/${planId}`, json('PATCH', { groups: picked }))}>
-          Запази групите
-        </Button>
+    <div className="grid gap-3">
+      <label className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        Моята група
+        <select
+          className={select}
+          value={props.myGroup ?? ''}
+          disabled={props.disabled || busy}
+          onChange={(e) => patch({ myGroup: e.target.value })}
+        >
+          <option value="" disabled>
+            изберете
+          </option>
+          {props.groups.map((g) => (
+            <option key={g}>{g}</option>
+          ))}
+        </select>
+      </label>
+      {props.myGroup && (
+        <ul className="grid gap-1.5">
+          {props.subjects.map((s) => (
+            <li key={s.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className={s.chosen ? '' : 'text-muted-foreground'}>
+                {s.course} <span className="text-xs text-muted-foreground">{TYPE[s.type]}</span>
+              </span>
+              <select
+                className={select}
+                value={s.chosen ?? ''}
+                disabled={props.disabled || busy}
+                aria-label={`Група за ${s.course}, ${TYPE[s.type]}`}
+                onChange={(e) => patch({ subject: { course: s.course, type: s.type, group: e.target.value || null } })}
+              >
+                {s.groups.map((g) => (
+                  <option key={g} value={g}>
+                    с {g}
+                    {g === props.myGroup ? ' (моята)' : ''}
+                  </option>
+                ))}
+                <option value="">Не го взимам</option>
+              </select>
+            </li>
+          ))}
+        </ul>
       )}
       <Problem text={error} />
     </div>

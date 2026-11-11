@@ -21,7 +21,7 @@ let planId: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
-  planId = await createPlan(ana, { name: 'Зима', groups: ['222'], fromSample: true });
+  planId = await createPlan(ana, { name: 'Зима', myGroup: '222', fromSample: true });
 });
 
 describe('MCP tools', () => {
@@ -56,10 +56,8 @@ describe('MCP tools', () => {
     expect(reply.result).toMatchObject({ isError: true, content: [{ text: 'Влезте в профила си.' }] });
   });
 
-  test('search_classes and find_free_rooms return what the services return', async () => {
+  test('search_classes returns what the service returns', async () => {
     expect(JSON.parse(text(await call('search_classes', { plan_id: planId, query: '1211' }, ana)))).toHaveLength(3);
-    const rooms = JSON.parse(text(await call('find_free_rooms', { plan_id: planId, day: 1, from: '07:30', to: '10:15', week: 3 }, ana)));
-    expect(rooms).not.toContain('1216');
   });
 
   test('an unexpected failure is a tool error with no details', async () => {

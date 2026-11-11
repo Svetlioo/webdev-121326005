@@ -1,8 +1,9 @@
-// The timetable of one plan: the week view, search, free rooms, notes and deleting a class.
+// The timetable of one plan: the subjects it follows, the week view, search, notes and deleting a class.
 // Reading needs read access to the plan; changing it needs the owner or an admin (src/services/access.ts).
 import type { Actor } from '../auth';
 import { deleteEntry, findEntryPlan, listEntries, type Entry } from '../data/entries';
 import { insertNote, listNotes, type Note } from '../data/notes';
+import type { Plan } from '../data/plans';
 import { editablePlan, readablePlan } from './access';
 import { AppError } from './errors';
 
@@ -25,6 +26,33 @@ export function attends(entry: Entry, group: string, week: number): boolean {
   return g.parity === 'all' || (g.parity === 'odd') === (week % 2 === 1);
 }
 
+/** A subject is a course and a kind of class: the УП lecture and the УП lab are two subjects. */
+export const subjectKey = (e: Pick<Entry, 'course' | 'type'>) => `${e.course}|${e.type}`;
+
+/** The group whose sessions of this class's subject the plan follows: the student's choice for the
+ *  subject, or else their own group; null means the subject is not taken. */
+export function followedGroup(plan: Pick<Plan, 'myGroup' | 'subjects'>, entry: Entry): string | null {
+  const key = subjectKey(entry);
+  return key in plan.subjects ? plan.subjects[key] : plan.myGroup;
+}
+
+export type Subject = { key: string; course: string; type: Entry['type']; groups: string[]; chosen: string | null; byDefault: boolean };
+
+/** Every subject of a timetable, the groups that have it, and which one the plan follows. */
+export function subjectsOf(entries: Entry[], plan: Pick<Plan, 'myGroup' | 'subjects'>): Subject[] {
+  const byKey = new Map<string, Subject>();
+  for (const e of [...entries].sort(byDayAndTime)) {
+    const key = subjectKey(e);
+    const s = byKey.get(key) ?? { key, course: e.course, type: e.type, groups: [], chosen: null, byDefault: !(key in plan.subjects) };
+    for (const g of e.groups) if (!s.groups.includes(g.name)) s.groups.push(g.name);
+    byKey.set(key, s);
+  }
+  return [...byKey.values()].map((s) => {
+    const followed = s.byDefault ? plan.myGroup : plan.subjects[s.key];
+    return { ...s, groups: s.groups.sort(), chosen: followed && s.groups.includes(followed) ? followed : null };
+  });
+}
+
 /** A note "Отменено" (for that week, or for every week) cancels the class. */
 const isCancelling = (note: Note) => /^отменено/i.test(note.text.trim());
 
@@ -34,13 +62,16 @@ export async function listClasses(actor: Actor | null, planId: number): Promise<
   return (await listEntries(planId)).sort(byDayAndTime);
 }
 
-/** What the plan's groups have in one week, with the notes for that week. A plan with no groups chosen yet has nothing. */
+/** The classes the plan follows in one week (its group, or the group chosen for a subject), with the notes for that week. */
 export async function getWeek(actor: Actor | null, planId: number, week: number): Promise<WeekClass[]> {
   const { plan } = await readablePlan(actor, planId);
   checkWeek(week);
   const notes = await listNotes(planId);
   return (await listEntries(planId))
-    .filter((e) => plan.groups.some((g) => attends(e, g, week)))
+    .filter((e) => {
+      const group = followedGroup(plan, e);
+      return group !== null && attends(e, group, week);
+    })
     .sort(byDayAndTime)
     .map((e) => {
       const own = notes.filter((n) => n.entryId === e.id && (n.week === null || n.week === week));
@@ -61,27 +92,6 @@ export async function searchClasses(actor: Actor | null, planId: number, query: 
         e.groups.some((g) => g.name.toLowerCase() === q),
     )
     .sort(byDayAndTime);
-}
-
-export type FreeRoomsQuery = { day: number; from: string; to: string; week: number };
-
-/** Rooms used somewhere in the plan's timetable that no class takes on that day, time and week. */
-export async function findFreeRooms(actor: Actor | null, planId: number, { day, from, to, week }: FreeRoomsQuery): Promise<string[]> {
-  await readablePlan(actor, planId);
-  checkWeek(week);
-  if (!Number.isInteger(day) || day < 1 || day > 6) throw new AppError(400, 'Денят трябва да е от понеделник до събота.');
-  const time = /^\d{2}:\d{2}$/;
-  if (!time.test(from) || !time.test(to) || from >= to) {
-    throw new AppError(400, 'Въведете начален и краен час във вида 07:30, като началото е преди края.');
-  }
-  const entries = await listEntries(planId);
-  const busy = new Set(
-    entries
-      .filter((e) => e.day === day && e.startsAt < to && from < e.endsAt)
-      .filter((e) => e.groups.some((g) => attends(e, g.name, week)))
-      .map((e) => e.room),
-  );
-  return [...new Set(entries.map((e) => e.room))].filter((r) => !busy.has(r)).sort();
 }
 
 /** The plan a class belongs to, if the actor may change it. */

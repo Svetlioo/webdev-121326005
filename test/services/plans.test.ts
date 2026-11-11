@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 const WORK = 'Работя от 9:00 до 16:30 в делничните дни';
-const newPlan = () => createPlan(ana, { name: 'Зимен семестър', groups: ['222'], fromSample: true });
+const newPlan = () => createPlan(ana, { name: 'Зимен семестър', myGroup: '222', fromSample: true });
 const label = (view: Awaited<ReturnType<typeof getPlan>>, course: string, day: number, startsAt: string) =>
   view.classes.find((c) => c.course === course && c.day === day && c.startsAt === startsAt)?.label;
 const model = (answer: () => Promise<unknown>): ModelClient => ({ readSchedule: vi.fn(), readPlan: vi.fn(answer) });
@@ -64,7 +64,7 @@ describe('my plan', () => {
     await sendMessage(ana, id, 'В понеделник съм на работа цял ден');
     const m = model(async () => ({ reply: 'Разбрах: понеделник сте на работа.', windows: [{ day: 1, from: '07:00', to: '20:00', what: 'работа' }] }));
     expect(await processNextPlan(m)).toBe(id);
-    expect(m.readPlan).toHaveBeenCalledWith({ instructions: [], images: [], messages: [{ role: 'user', content: 'В понеделник съм на работа цял ден' }] });
+    expect(m.readPlan).toHaveBeenCalledWith(expect.objectContaining({ instructions: [], images: [], messages: [{ role: 'user', content: 'В понеделник съм на работа цял ден' }], myGroup: '222' }));
     const view = await getPlan(ana, id, 3);
     expect(view.plan).toMatchObject({ windowsFrom: 'model', modelStatus: 'idle' });
     expect(view.messages.at(-1)).toMatchObject({ role: 'assistant', content: 'Разбрах: понеделник сте на работа.' });
@@ -79,7 +79,9 @@ describe('my plan', () => {
     await addSource(ana, id, { image: Buffer.from('png'), imageType: 'image/png' });
     const m = model(async () => ({ reply: 'ok', windows: [] }));
     await processNextPlan(m);
-    expect(m.readPlan).toHaveBeenCalledWith({ instructions: [WORK], images: [{ data: Buffer.from('png'), type: 'image/png' }], messages: [] });
+    const sent = vi.mocked(m.readPlan).mock.calls[0][0];
+    expect(sent).toMatchObject({ instructions: [WORK], images: [{ data: Buffer.from('png'), type: 'image/png' }], messages: [], myGroup: '222' });
+    expect(sent.subjects).toContainEqual({ course: 'УП', type: 'lab', groups: ['221а', '221б', '222'], chosen: '222' });
   });
 
   test('a change made while the model works is not overwritten by the older answer', async () => {
@@ -94,6 +96,30 @@ describe('my plan', () => {
     expect(view.plan).toMatchObject({ windowsFrom: 'parser', modelStatus: 'queued' });
     expect(view.plan.windows).toHaveLength(6);
     expect(view.messages).toEqual([]);
+  });
+
+  test('AC-23 the chat replaces the instructions (Friday freed) and moves a subject; an impossible subject change rejects the whole answer', async () => {
+    const id = await newPlan();
+    await addSource(ana, id, { text: WORK });
+    await sendMessage(ana, id, 'Вече не работя в петък');
+    await processNextPlan(model(async () => ({
+      reply: 'Махнах петък и преместих УП упражнението при 221а.',
+      windows: [1, 2, 3, 4].map((day) => ({ day, from: '09:00', to: '16:30', what: 'работа' })),
+      instructions: ['Работя от 9:00 до 16:30 от понеделник до четвъртък'],
+      subjects: [{ course: 'УП', type: 'lab', group: '221а' }],
+    })));
+    const view = await getPlan(ana, id, 3);
+    expect(view.sources.map((s) => s.text)).toEqual(['Работя от 9:00 до 16:30 от понеделник до четвъртък']);
+    expect(label(view, 'МСВИВИ', 5, '07:30')).toBe('can_attend');
+    expect(view.subjects.find((s) => s.key === 'УП|lab')).toMatchObject({ chosen: '221а', byDefault: false });
+    expect(view.messages.at(-1)).toMatchObject({ role: 'assistant' });
+
+    await sendMessage(ana, id, 'И МСВИВИ с 221б');
+    await processNextPlan(model(async () => ({ reply: 'ok', windows: [], instructions: ['нищо'], subjects: [{ course: 'МСВИВИ', type: 'lecture', group: '221б' }] })));
+    const after = await getPlan(ana, id, 3);
+    expect(after.plan.modelStatus).toBe('failed');
+    expect(after.sources.map((s) => s.text)).toEqual(['Работя от 9:00 до 16:30 от понеделник до четвъртък']);
+    expect(after.subjects.find((s) => s.key === 'МСВИВИ|lecture')).toMatchObject({ chosen: '222', byDefault: true });
   });
 
   test('AC-22 an answer that does not match the schema is rejected and the windows without the model stay', async () => {
@@ -138,15 +164,15 @@ describe('my plan', () => {
   });
 
   test.each([
-    ['an empty name', { name: ' ', groups: ['222'] }],
-    ['a group that is not a TU group number', { name: 'План', groups: ['група 5'] }],
+    ['an empty name', { name: ' ', myGroup: '222' }],
+    ['a group that is not a TU group number', { name: 'План', myGroup: 'група 5' }],
   ])('a plan with %s gives 400', async (_name, input) => {
     await expect(createPlan(ana, input)).rejects.toMatchObject({ status: 400 });
     await expect(createPlan(null, input)).rejects.toMatchObject({ status: 401 });
   });
 
   test('a plan starts empty, or with the 19 classes of the sample timetable', async () => {
-    await createPlan(ana, { name: 'Празна', groups: ['221а'] });
+    await createPlan(ana, { name: 'Празна', myGroup: '221а' });
     expect(db.entries).toHaveLength(0);
     await newPlan();
     expect(db.entries).toHaveLength(19);

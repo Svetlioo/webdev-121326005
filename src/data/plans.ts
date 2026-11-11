@@ -8,7 +8,10 @@ export type Plan = {
   ownerId: string;
   ownerEmail: string;
   name: string;
-  groups: string[];
+  /** The student's own group, chosen after the timetable is in; null until then. */
+  myGroup: string | null;
+  /** For a subject ("course|type"): the group whose sessions the student attends, or null for "not taken". */
+  subjects: Record<string, string | null>;
   windows: TimeWindow[];
   windowsFrom: 'parser' | 'model';
   modelStatus: ModelStatus;
@@ -18,21 +21,25 @@ export type Source = { id: number; text: string | null; imageType: string | null
 export type Message = { id: number; role: 'user' | 'assistant'; content: string };
 export type Share = { userId: string; email: string };
 
-const PLAN = `p.id::int AS id, p.owner_id AS "ownerId", u.email AS "ownerEmail", p.name, p.groups,
+const PLAN = `p.id::int AS id, p.owner_id AS "ownerId", u.email AS "ownerEmail", p.name, p.my_group AS "myGroup", p.subjects,
   p.windows, p.windows_from AS "windowsFrom", p.model_status AS "modelStatus"`;
 
-export async function insertPlan(ownerId: string, name: string, groups: string[]): Promise<number> {
-  const { rows } = await db().query('INSERT INTO plans (owner_id, name, groups) VALUES ($1, $2, $3) RETURNING id::int AS id', [
+export async function insertPlan(ownerId: string, name: string, myGroup: string | null): Promise<number> {
+  const { rows } = await db().query('INSERT INTO plans (owner_id, name, my_group) VALUES ($1, $2, $3) RETURNING id::int AS id', [
     ownerId,
     name,
-    groups,
+    myGroup,
   ]);
   return rows[0].id;
 }
 
-/** The groups whose classes the plan follows. */
-export async function setGroups(id: number, groups: string[]): Promise<void> {
-  await db().query('UPDATE plans SET groups = $2 WHERE id = $1', [id, groups]);
+export async function setMyGroup(id: number, group: string): Promise<void> {
+  await db().query('UPDATE plans SET my_group = $2 WHERE id = $1', [id, group]);
+}
+
+/** Replaces the subject choices. */
+export async function setSubjects(id: number, subjects: Record<string, string | null>): Promise<void> {
+  await db().query('UPDATE plans SET subjects = $2 WHERE id = $1', [id, JSON.stringify(subjects)]);
 }
 
 export async function findPlan(id: number): Promise<Plan | null> {
@@ -78,20 +85,44 @@ export async function saveWindows(id: number, windows: TimeWindow[], from: 'pars
   );
 }
 
+export type ModelAnswer = { windows: TimeWindow[]; subjects?: Record<string, string | null>; instructions?: string[] };
+
 /**
- * The worker's result: the model's windows ('idle'), or null when the model failed ('failed').
- * Saved only while the plan is still 'processing': if the owner added a source or a message
- * meanwhile, the plan is 'queued' again and this older result is dropped. Returns whether it was saved.
+ * The worker's result, all or nothing: the model's busy times, and when the student asked for it the
+ * new subject choices and the new list of instructions (replacing the text sources; photos stay).
+ * Saved only while the plan is still 'processing': if the owner changed something meanwhile, the plan
+ * is 'queued' again and this older answer is dropped. Returns whether it was saved.
  */
-export async function finishPlan(id: number, windows: TimeWindow[] | null): Promise<boolean> {
-  const { rowCount } = windows
-    ? await db().query(
-        `UPDATE plans SET windows = $2, windows_from = 'model', model_status = 'idle', updated_at = now()
-          WHERE id = $1 AND model_status = 'processing'`,
-        [id, JSON.stringify(windows)],
-      )
-    : await db().query(`UPDATE plans SET model_status = 'failed', updated_at = now() WHERE id = $1 AND model_status = 'processing'`, [id]);
-  return rowCount === 1;
+export async function applyModelAnswer(id: number, answer: ModelAnswer): Promise<boolean> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const { rowCount } = await client.query(
+      `UPDATE plans SET windows = $2, windows_from = 'model', model_status = 'idle', subjects = COALESCE($3, subjects), updated_at = now()
+        WHERE id = $1 AND model_status = 'processing'`,
+      [id, JSON.stringify(answer.windows), answer.subjects ? JSON.stringify(answer.subjects) : null],
+    );
+    if (rowCount !== 1) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    if (answer.instructions) {
+      await client.query('DELETE FROM plan_sources WHERE plan_id = $1 AND text IS NOT NULL', [id]);
+      for (const text of answer.instructions) await client.query('INSERT INTO plan_sources (plan_id, text) VALUES ($1, $2)', [id, text]);
+    }
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** The model failed or answered wrongly: the plan keeps what it had. Only while still 'processing'. */
+export async function failPlan(id: number): Promise<void> {
+  await db().query(`UPDATE plans SET model_status = 'failed', updated_at = now() WHERE id = $1 AND model_status = 'processing'`, [id]);
 }
 
 /** Takes the oldest plan waiting for the model; one stuck in processing for 10 minutes is taken again. */

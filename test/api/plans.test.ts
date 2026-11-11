@@ -21,7 +21,7 @@ vi.mock('../../src/data/plans');
 const ana = { id: 'ana', role: 'student' };
 const boris = { id: 'boris', role: 'student' };
 const as = (actor: typeof ana | null) => vi.mocked(getActor).mockResolvedValue(actor);
-const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', groups: ['222'], windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const };
+const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', myGroup: '222', subjects: {}, windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const };
 const req = (method: string, body?: unknown) =>
   new Request('http://localhost:3000/api/x', { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });
@@ -101,15 +101,17 @@ describe('plans over HTTP', () => {
   });
 });
 
-describe('PATCH /api/plans/:id (groups)', () => {
-  test('the owner chooses the groups (204); a group that is not a TU number is 400; a reader gets 403', async () => {
+describe('PATCH /api/plans/:id (my group and subjects)', () => {
+  test('the owner sets the group and a subject (204); a group or subject not in the timetable is 400; a reader gets 403', async () => {
     as(ana);
-    expect((await groupsRoute(req('PATCH', { groups: ['222', '221а'] }), params({ id: '1' }))).status).toBe(204);
-    expect(plans.setGroups).toHaveBeenCalledWith(1, ['222', '221а']);
-    expect((await groupsRoute(req('PATCH', { groups: ['група 9'] }), params({ id: '1' }))).status).toBe(400);
-    expect((await groupsRoute(req('PATCH', {}), params({ id: '1' }))).status).toBe(204);
+    expect((await groupsRoute(req('PATCH', { myGroup: '222' }), params({ id: '1' }))).status).toBe(204);
+    expect(plans.setMyGroup).toHaveBeenCalledWith(1, '222');
+    expect((await groupsRoute(req('PATCH', { myGroup: '999' }), params({ id: '1' }))).status).toBe(400);
+    expect((await groupsRoute(req('PATCH', { subject: { course: 'УП', type: 'lab', group: null } }), params({ id: '1' }))).status).toBe(204);
+    expect(plans.setSubjects).toHaveBeenCalledWith(1, { 'УП|lab': null });
+    expect((await groupsRoute(req('PATCH', { subject: { course: 'УП', type: 'lab', group: '221б' } }), params({ id: '1' }))).status).toBe(400);
     as(boris);
-    expect((await groupsRoute(req('PATCH', { groups: ['222'] }), params({ id: '1' }))).status).toBe(403);
+    expect((await groupsRoute(req('PATCH', { myGroup: '222' }), params({ id: '1' }))).status).toBe(403);
   });
 });
 

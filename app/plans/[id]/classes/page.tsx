@@ -10,12 +10,11 @@ import { Input } from '@/components/ui/input';
 import type { Entry } from '@/src/data/entries';
 import { readablePlan } from '@/src/services/access';
 import { AppError } from '@/src/services/errors';
-import { findFreeRooms, LAST_WEEK, listClasses, searchClasses } from '@/src/services/schedule';
+import { listClasses, searchClasses } from '@/src/services/schedule';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
 const TYPES = { lecture: 'Лекция', seminar: 'Семинар', lab: 'Упражнение' };
 const PARITY = { all: '', odd: ' · нечетни', even: ' · четни' };
-const select = 'h-8 rounded-lg border border-input bg-transparent px-2 text-sm';
 
 type Params = Record<string, string | string[] | undefined>;
 const param = (p: Params, key: string, fallback = '') => (typeof p[key] === 'string' ? (p[key] as string) : fallback);
@@ -30,7 +29,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<{ data?: T; error?: s
   }
 }
 
-/** Every class of a plan's timetable, with search and free rooms. */
+/** Every class of a plan's timetable, with search. */
 export default async function ClassesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Params> }) {
   const actor = await getActor();
   if (!actor) redirect('/signin');
@@ -49,11 +48,8 @@ export default async function ClassesPage({ params, searchParams }: { params: Pr
   const { plan, canEdit } = access.data!;
   const p = await searchParams;
   const q = param(p, 'q');
-  const week = Number(param(p, 'week', '1'));
-  const free = { day: Number(param(p, 'day', '1')), from: param(p, 'from', '07:30'), to: param(p, 'to', '10:15'), week };
   const classes = await listClasses(actor, id);
   const found = q ? await attempt(() => searchClasses(actor, id, q)) : null;
-  const rooms = p.day ? await attempt(() => findFreeRooms(actor, id, free)) : null;
 
   return (
     <div className="min-h-dvh bg-muted/40">
@@ -67,7 +63,7 @@ export default async function ClassesPage({ params, searchParams }: { params: Pr
           <p className="text-sm text-muted-foreground">{classes.length} занятия в разписанието на програмата.</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6">
           <section aria-labelledby="search-title" className="rounded-lg border bg-background p-4">
             <h2 id="search-title" className="mb-3 text-sm font-medium">
               Търсене по дисциплина, зала или група
@@ -81,28 +77,6 @@ export default async function ClassesPage({ params, searchParams }: { params: Pr
             {found?.data && <Results classes={found.data} />}
           </section>
 
-          <section aria-labelledby="rooms-title" className="rounded-lg border bg-background p-4">
-            <h2 id="rooms-title" className="mb-3 text-sm font-medium">
-              Свободни зали
-            </h2>
-            <form className="flex flex-wrap items-end gap-2">
-              <select name="day" defaultValue={free.day} aria-label="Ден" className={select}>
-                {DAYS.slice(1).map((d, i) => (
-                  <option key={d} value={i + 1}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <Input name="from" type="time" defaultValue={free.from} aria-label="От" className="w-28" />
-              <Input name="to" type="time" defaultValue={free.to} aria-label="До" className="w-28" />
-              <Input name="week" type="number" min={1} max={LAST_WEEK} defaultValue={week} aria-label="Седмица" className="w-20" />
-              <Button type="submit" variant="outline">
-                Намери
-              </Button>
-            </form>
-            {rooms?.error && <p className="mt-3 text-sm text-destructive">{rooms.error}</p>}
-            {rooms?.data && <p className="mt-3 text-sm">{rooms.data.length ? rooms.data.join(', ') : 'Няма свободни зали в това време.'}</p>}
-          </section>
         </div>
 
         <section aria-labelledby="all-title" className="rounded-lg border bg-background">

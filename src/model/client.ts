@@ -7,11 +7,14 @@ export type ScheduleSource = {
   instructions: string;
 };
 
-/** What one plan gives the model: the student's instructions and photos, and the chat so far. */
+/** What one plan gives the model: the student's instructions and photos, the chat so far, their group,
+ *  and the subjects of the timetable with the groups that have each one and the current choice. */
 export type PlanSource = {
   instructions: string[];
   images: { data: Buffer; type: string }[];
   messages: { role: 'user' | 'assistant'; content: string }[];
+  myGroup: string | null;
+  subjects: { course: string; type: string; groups: string[]; chosen: string | null }[];
 };
 
 export interface ModelClient {

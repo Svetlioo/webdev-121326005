@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Entry } from '../../src/data/entries';
-import { createPlan, setPlanGroups, sharePlan } from '../../src/services/plans';
-import { addNote, deleteClass, findFreeRooms, getWeek, listClasses, searchClasses } from '../../src/services/schedule';
+import { chooseSubject, createPlan, setMyGroup, sharePlan } from '../../src/services/plans';
+import { addNote, deleteClass, getWeek, listClasses, searchClasses, subjectsOf } from '../../src/services/schedule';
 import { admin, ana, boris, installFakes, vera, type Store } from '../fakes';
 
 // The data layer is an in-memory store (test/fakes.ts); a plan starts from the real sample timetable.
@@ -15,7 +15,7 @@ let plan222: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
-  plan222 = await createPlan(ana, { name: 'Зима', groups: ['222'], fromSample: true });
+  plan222 = await createPlan(ana, { name: 'Зима', myGroup: '222', fromSample: true });
 });
 
 const show = (classes: Entry[]) => classes.map((c) => `${c.course} ${c.type} ${c.day} ${c.startsAt}–${c.endsAt} ${c.room}`);
@@ -31,7 +31,7 @@ describe('the timetable of a plan', () => {
   });
 
   test('an empty plan has no classes until the student imports a timetable', async () => {
-    const empty = await createPlan(ana, { name: 'Празна', groups: ['222'] });
+    const empty = await createPlan(ana, { name: 'Празна', myGroup: '222' });
     expect(await listClasses(ana, empty)).toEqual([]);
     expect(await getWeek(ana, empty, 3)).toEqual([]);
   });
@@ -44,21 +44,40 @@ describe('the timetable of a plan', () => {
   });
 
   test('AC-2 group 221а does not see the Wednesday ПИ lab in week 1, and sees it in room 1211 in week 3', async () => {
-    const plan221a = await createPlan(ana, { name: '221а', groups: ['221а'], fromSample: true });
+    const plan221a = await createPlan(ana, { name: '221а', myGroup: '221а', fromSample: true });
     const lab = 'ПИ lab 3 07:30–10:15 1211';
     expect(show(await getWeek(ana, plan221a, 1))).not.toContain(lab);
     expect(show(await getWeek(ana, plan221a, 3))).toContain(lab);
   });
 
-  test('a plan that follows two groups shows the classes of both, and one with no groups shows none', async () => {
-    const both = await createPlan(ana, { name: 'Две', groups: ['222', '221а'], fromSample: true });
-    const week3 = show(await getWeek(ana, both, 3));
-    expect(week3).toContain('УП lab 1 13:45–16:30 705'); // 222
-    expect(week3).toContain('ПИ lab 3 07:30–10:15 1211'); // 221а
-    const none = await createPlan(ana, { name: 'Без групи', fromSample: true });
+  test('AC-13 setting the УП lab to group 221а shows it on Thursday 10:30 in 705 instead of Monday; "not taken" hides a subject; a group without the subject is 400', async () => {
+    await chooseSubject(ana, plan222, { course: 'УП', type: 'lab', group: '221а' });
+    const week3 = show(await getWeek(ana, plan222, 3));
+    expect(week3).toContain('УП lab 4 10:30–13:15 705');
+    expect(week3).not.toContain('УП lab 1 13:45–16:30 705');
+    await chooseSubject(ana, plan222, { course: 'КЗ', type: 'lecture', group: null });
+    for (const w of [1, 2, 3, 4]) expect(show(await getWeek(ana, plan222, w)).some((c) => c.startsWith('КЗ lecture'))).toBe(false);
+    const before = structuredClone(db.plans[0].subjects);
+    await expect(chooseSubject(ana, plan222, { course: 'МСВИВИ', type: 'lecture', group: '221б' })).rejects.toMatchObject({ status: 400 });
+    await expect(chooseSubject(ana, plan222, { course: 'Няма', type: 'lab', group: null })).rejects.toMatchObject({ status: 400 });
+    expect(db.plans[0].subjects).toEqual(before);
+  });
+
+  test('a subject held twice a week by the same group lists that group once; a choice of a group without the subject means not taken', () => {
+    const lab = (id: number, day: number): Entry => ({ id, course: 'ПИ', type: 'lab', day, startsAt: '07:30', endsAt: '10:15', room: '1211', startWeek: 1, groups: [{ name: '222', parity: 'all' }] });
+    expect(subjectsOf([lab(1, 3), lab(2, 4)], { myGroup: '222', subjects: {} })).toEqual([
+      { key: 'ПИ|lab', course: 'ПИ', type: 'lab', groups: ['222'], chosen: '222', byDefault: true },
+    ]);
+    expect(subjectsOf([lab(1, 3)], { myGroup: '221а', subjects: {} })[0].chosen).toBeNull();
+  });
+
+  test('a plan with no group yet shows nothing; choosing a group from the timetable shows its classes', async () => {
+    const none = await createPlan(ana, { name: 'Без група', fromSample: true });
     expect(await getWeek(ana, none, 3)).toEqual([]);
-    await setPlanGroups(ana, none, ['222']);
+    await expect(setMyGroup(ana, none, '999')).rejects.toMatchObject({ status: 400 });
+    await setMyGroup(ana, none, '222');
     expect(show(await getWeek(ana, none, 3))).toContain('УП lab 1 13:45–16:30 705');
+    await expect(setMyGroup(boris, none, '222')).rejects.toMatchObject({ status: 403 });
   });
 
   test.each([0, 16, 2.5, NaN])('week %s gives 400', async (week) => {
@@ -79,25 +98,6 @@ describe('the timetable of a plan', () => {
     expect(await searchClasses(ana, plan222, '  ')).toEqual([]);
   });
 
-  test('AC-13 free rooms on Monday 07:30–10:15 in week 3 do not include 1216, where the ОИТ lecture is', async () => {
-    const rooms = await findFreeRooms(ana, plan222, { day: 1, from: '07:30', to: '10:15', week: 3 });
-    expect(rooms).not.toContain('1216');
-    expect(rooms).toContain('705');
-  });
-
-  test('a room whose only class that day has not started yet is free', async () => {
-    expect(await findFreeRooms(ana, plan222, { day: 1, from: '13:45', to: '16:30', week: 1 })).toContain('705');
-    expect(await findFreeRooms(ana, plan222, { day: 1, from: '13:45', to: '16:30', week: 3 })).not.toContain('705');
-  });
-
-  test.each([
-    { day: 7, from: '07:30', to: '10:15', week: 3 },
-    { day: 1, from: '7:30', to: '10:15', week: 3 },
-    { day: 1, from: '10:15', to: '07:30', week: 3 },
-    { day: 1, from: '07:30', to: '10:15', week: 0 },
-  ])('a wrong day, time or week gives 400: %o', async (query) => {
-    await expect(findFreeRooms(ana, plan222, query)).rejects.toMatchObject({ status: 400 });
-  });
 });
 
 describe('notes', () => {
@@ -155,10 +155,9 @@ describe('deleting a class', () => {
     await expect(deleteClass(ana, 999)).rejects.toMatchObject({ status: 404 });
   });
 
-  test('reading needs access: a stranger gets 403 for the week, search and free rooms', async () => {
+  test('reading needs access: a stranger gets 403 for the week and search', async () => {
     await expect(getWeek(vera, plan222, 3)).rejects.toMatchObject({ status: 403 });
     await expect(searchClasses(vera, plan222, 'ПИ')).rejects.toMatchObject({ status: 403 });
-    await expect(findFreeRooms(vera, plan222, { day: 1, from: '07:30', to: '10:15', week: 3 })).rejects.toMatchObject({ status: 403 });
     await expect(listClasses(vera, plan222)).rejects.toMatchObject({ status: 403 });
   });
 });

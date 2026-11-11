@@ -54,7 +54,7 @@ const job = { id: 1, planId: 1, sourceUrl: null, image: photo, imageType: 'image
 beforeEach(async () => {
   vi.resetAllMocks();
   installFakes();
-  await createPlan(ana, { name: 'Зима', groups: ['222'] }); // plan 1, owned by ana
+  await createPlan(ana, { name: 'Зима', myGroup: '222' }); // plan 1, owned by ana
   vi.mocked(insertImport).mockImplementation(async () => anImport({ status: 'queued', draft: null }));
 });
 
