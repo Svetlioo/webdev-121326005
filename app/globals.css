@@ -127,3 +127,70 @@
     @apply font-sans;
     }
 }
+/* FullCalendar on the week view, in the shadcn theme's colours. One colour per kind of class,
+   like a Teams calendar: lectures blue, labs green, seminars violet; a cancelled class is grey. */
+.week-calendar .fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: transparent;
+  font-size: 0.8125rem;
+}
+.week-calendar .fc .fc-col-header-cell-cushion {
+  padding: 0.5rem 0.25rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.week-calendar .fc .fc-timegrid-slot {
+  height: 2rem;
+}
+.week-calendar .fc .fc-timegrid-slot-label-cushion {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.week-calendar .fc .fc-event-main {
+  color: inherit; /* FullCalendar makes event text white; each kind of class sets its own colour */
+}
+.week-calendar .fc .fc-timegrid-event {
+  cursor: pointer;
+  border-radius: 0.375rem;
+  border-width: 0 0 0 3px;
+  box-shadow: none;
+}
+.week-calendar .fc .class-lecture {
+  background: oklch(0.93 0.04 250);
+  border-color: oklch(0.55 0.17 255);
+  color: oklch(0.3 0.08 255);
+}
+.week-calendar .fc .class-lab {
+  background: oklch(0.94 0.05 155);
+  border-color: oklch(0.55 0.14 155);
+  color: oklch(0.3 0.07 155);
+}
+.week-calendar .fc .class-seminar {
+  background: oklch(0.93 0.04 300);
+  border-color: oklch(0.55 0.15 300);
+  color: oklch(0.3 0.08 300);
+}
+.week-calendar .fc .class-cancelled {
+  background: var(--muted);
+  border-color: var(--destructive);
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.dark .week-calendar .fc .class-lecture {
+  background: oklch(0.32 0.06 255);
+  color: oklch(0.93 0.03 255);
+}
+.dark .week-calendar .fc .class-lab {
+  background: oklch(0.32 0.06 155);
+  color: oklch(0.93 0.03 155);
+}
+.dark .week-calendar .fc .class-seminar {
+  background: oklch(0.32 0.06 300);
+  color: oklch(0.93 0.03 300);
+}
+.dark .week-calendar .fc .class-cancelled {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}

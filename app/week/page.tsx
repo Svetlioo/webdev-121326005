@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getActor } from '@/app/session';
 import { SignOutButton } from '@/app/schedule/buttons';
@@ -12,6 +12,7 @@ import { findFreeRooms, getWeek, LAST_WEEK, listClasses, searchClasses } from '@
 import { authMessage } from '@/src/auth-messages';
 import { LinkGoogleButton } from './link-google';
 import { NoteForm } from './note-form';
+import { WeekCalendar } from './week-calendar';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
 const TYPES = { lecture: 'Лекция', seminar: 'Семинар', lab: 'Упражнение' };
@@ -19,6 +20,7 @@ const select =
   'h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
 type Params = Record<string, string | string[] | undefined>;
+const weekHref = (group: string, week: number) => `/week?group=${encodeURIComponent(group)}&week=${week}`;
 const param = (p: Params, key: string, fallback = '') => (typeof p[key] === 'string' ? (p[key] as string) : fallback);
 
 /** Runs a service call and turns a refusal into a message on the page. */
@@ -50,8 +52,8 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
   return (
     <div className="min-h-dvh bg-muted/40">
       <header className="border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <nav className="flex gap-4 text-sm">
+        <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
+          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <span className="font-medium">Седмица</span>
             <Link href="/schedule" className="text-muted-foreground hover:text-foreground">
               Цялото разписание
@@ -94,9 +96,23 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
         </form>
 
         <section aria-labelledby="week-title" className="rounded-lg border bg-background">
-          <h2 id="week-title" className="border-b px-4 py-3 text-sm font-medium">
-            Група {group}, {week}. седмица ({week % 2 ? 'нечетна' : 'четна'})
-          </h2>
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+            <h2 id="week-title" className="text-sm font-medium">
+              Група {group}, {week}. седмица ({week % 2 ? 'нечетна' : 'четна'})
+            </h2>
+            <nav aria-label="Седмици" className="flex gap-1">
+              {week > 1 && (
+                <Link href={weekHref(group, week - 1)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  ‹ {week - 1}.
+                </Link>
+              )}
+              {week < LAST_WEEK && (
+                <Link href={weekHref(group, week + 1)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  {week + 1}. ›
+                </Link>
+              )}
+            </nav>
+          </div>
           {classes.error ? (
             <Alert variant="destructive" className="m-4 w-auto">
               <AlertDescription>{classes.error}</AlertDescription>
@@ -104,7 +120,12 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
           ) : classes.data!.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">Няма занятия тази седмица.</p>
           ) : (
-            <ul className="divide-y">
+            <>
+            {/* A Teams-like calendar on a computer, the list on a phone. */}
+            <div className="week-calendar hidden p-2 sm:block">
+              <WeekCalendar classes={classes.data!} week={week} publisher={publisher} />
+            </div>
+            <ul className="divide-y sm:hidden">
               {classes.data!.map((c) => (
                 <li key={c.id} className="px-4 py-3">
                   <p className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -127,6 +148,7 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
                 </li>
               ))}
             </ul>
+            </>
           )}
         </section>
 
