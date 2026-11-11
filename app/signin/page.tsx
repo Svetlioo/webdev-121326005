@@ -1,0 +1,95 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { authClient } from '@/src/auth-client';
+import { authMessage } from '@/src/auth-messages';
+
+export default function SignInPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const signingIn = mode === 'signin';
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email'));
+    const password = String(form.get('password'));
+    setBusy(true);
+    setError('');
+    const { error } = signingIn
+      ? await authClient.signIn.email({ email, password })
+      : await authClient.signUp.email({ email, password, name: email.split('@')[0] });
+    setBusy(false);
+    if (error) return setError(authMessage(error.code));
+    router.push('/schedule');
+    router.refresh();
+  }
+
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-muted/40 px-4 py-12">
+      <div className="w-full max-w-sm">
+        <p className="mb-6 text-center text-sm text-muted-foreground">
+          ТУ София · <span className="text-foreground">Седмично разписание</span>
+        </p>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h1>{signingIn ? 'Вход' : 'Нов профил'}</h1>
+            </CardTitle>
+            <CardDescription>
+              {signingIn ? 'Влезте с имейла и паролата си.' : 'Паролата трябва да е поне 8 знака.'}
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={onSubmit}>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Имейл</Label>
+                <Input id="email" name="email" type="email" autoComplete="email" required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Парола</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={signingIn ? 'current-password' : 'new-password'}
+                  minLength={signingIn ? undefined : 8}
+                  required
+                />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+            <CardFooter className="mt-6 flex-col gap-3">
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? 'Моля, изчакайте…' : signingIn ? 'Вход' : 'Създай профил'}
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                className="text-muted-foreground"
+                onClick={() => {
+                  setMode(signingIn ? 'signup' : 'signin');
+                  setError('');
+                }}
+              >
+                {signingIn ? 'Нямате профил? Регистрирайте се' : 'Имате профил? Влезте'}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    </main>
+  );
+}
