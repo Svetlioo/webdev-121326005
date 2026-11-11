@@ -15,7 +15,7 @@ Answer with one object per class and per group pattern: course, type (lecture, s
 startsAt and endsAt as HH:MM, room, startWeek and groups (each with name and parity all, odd or even).
 Rules: "л." is a lecture, "л.у." is a lab, "с.у." is a seminar; the room follows the type. A cell split diagonally is
 a class held in alternating weeks: give each group its parity. Footnotes such as "упражненията започват от 3 седмица"
-set startWeek. Use only these groups: {groups}. Never include names of students or teachers.`;
+set startWeek. Groups are TU Sofia group numbers such as 221а or 222. Never include names of students or teachers.`;
 
 const PLAN_PROMPT = `You help a university student in Sofia plan their week around their classes.
 From the student's instructions, photos and messages, list every time they are busy (work, meetings, travel) as windows:
@@ -61,7 +61,7 @@ export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = f
       if (source.instructions) user.push(`Publisher's instructions: ${source.instructions}`);
       return ask(
         [
-          { role: 'system', content: SCHEDULE_PROMPT.replace('{groups}', source.groups.join(', ')) },
+          { role: 'system', content: SCHEDULE_PROMPT },
           { role: 'user', content: user.join('\n\n'), images: source.image ? [source.image.data.toString('base64')] : undefined },
         ],
         importAnswer,

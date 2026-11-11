@@ -24,7 +24,7 @@ export default async function UsersPage() {
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Потребители</h1>
-          <p className="text-sm text-muted-foreground">Публикуващият внася разписанието за всички; администраторът дава роли.</p>
+          <p className="text-sm text-muted-foreground">Студентът вижда своите програми и споделените с него; администраторът вижда и променя всички.</p>
         </div>
         <ul className="divide-y rounded-lg border bg-background">
           {users.map((u) => (

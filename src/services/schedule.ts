@@ -1,7 +1,10 @@
+// The timetable of one plan: the week view, search, free rooms, notes and deleting a class.
+// Reading needs read access to the plan; changing it needs the owner or an admin (src/services/access.ts).
 import type { Actor } from '../auth';
-import { deleteEntry, entryExists, listEntries, type Entry } from '../data/entries';
+import { deleteEntry, findEntryPlan, listEntries, type Entry } from '../data/entries';
 import { insertNote, listNotes, type Note } from '../data/notes';
-import { AppError, requireActor, requirePublisher } from './errors';
+import { editablePlan, readablePlan } from './access';
+import { AppError } from './errors';
 
 export const LAST_WEEK = 15;
 
@@ -25,23 +28,19 @@ function attends(entry: Entry, group: string, week: number): boolean {
 /** A note "Отменено" (for that week, or for every week) cancels the class. */
 const isCancelling = (note: Note) => /^отменено/i.test(note.text.trim());
 
-/** The classes of the schedule, sorted by day and start time. Any signed-in user. */
-export async function listClasses(actor: Actor | null): Promise<Entry[]> {
-  requireActor(actor);
-  return (await listEntries()).sort(byDayAndTime);
+/** Every class of the plan's timetable, sorted by day and start time. */
+export async function listClasses(actor: Actor | null, planId: number): Promise<Entry[]> {
+  await readablePlan(actor, planId);
+  return (await listEntries(planId)).sort(byDayAndTime);
 }
 
-/** What one group has in one week, with the notes for that week. Any signed-in user. */
-export async function getWeek(actor: Actor | null, group: string, week: number): Promise<WeekClass[]> {
-  requireActor(actor);
+/** What the plan's group has in one week, with the notes for that week. */
+export async function getWeek(actor: Actor | null, planId: number, week: number): Promise<WeekClass[]> {
+  const { plan } = await readablePlan(actor, planId);
   checkWeek(week);
-  const entries = await listEntries();
-  if (!entries.some((e) => e.groups.some((g) => g.name === group))) {
-    throw new AppError(404, 'Няма такава група в разписанието.');
-  }
-  const notes = await listNotes();
-  return entries
-    .filter((e) => attends(e, group, week))
+  const notes = await listNotes(planId);
+  return (await listEntries(planId))
+    .filter((e) => attends(e, plan.groupName, week))
     .sort(byDayAndTime)
     .map((e) => {
       const own = notes.filter((n) => n.entryId === e.id && (n.week === null || n.week === week));
@@ -50,11 +49,11 @@ export async function getWeek(actor: Actor | null, group: string, week: number):
 }
 
 /** Classes whose course or room contains the text, or that a group with exactly that name attends. */
-export async function searchClasses(actor: Actor | null, query: string): Promise<Entry[]> {
-  requireActor(actor);
+export async function searchClasses(actor: Actor | null, planId: number, query: string): Promise<Entry[]> {
+  await readablePlan(actor, planId);
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return (await listEntries())
+  return (await listEntries(planId))
     .filter(
       (e) =>
         e.course.toLowerCase().includes(q) ||
@@ -66,16 +65,16 @@ export async function searchClasses(actor: Actor | null, query: string): Promise
 
 export type FreeRoomsQuery = { day: number; from: string; to: string; week: number };
 
-/** Rooms used somewhere in the schedule that no class takes on that day, time and week. */
-export async function findFreeRooms(actor: Actor | null, { day, from, to, week }: FreeRoomsQuery): Promise<string[]> {
-  requireActor(actor);
+/** Rooms used somewhere in the plan's timetable that no class takes on that day, time and week. */
+export async function findFreeRooms(actor: Actor | null, planId: number, { day, from, to, week }: FreeRoomsQuery): Promise<string[]> {
+  await readablePlan(actor, planId);
   checkWeek(week);
   if (!Number.isInteger(day) || day < 1 || day > 6) throw new AppError(400, 'Денят трябва да е от понеделник до събота.');
   const time = /^\d{2}:\d{2}$/;
   if (!time.test(from) || !time.test(to) || from >= to) {
     throw new AppError(400, 'Въведете начален и краен час във вида 07:30, като началото е преди края.');
   }
-  const entries = await listEntries();
+  const entries = await listEntries(planId);
   const busy = new Set(
     entries
       .filter((e) => e.day === day && e.startsAt < to && from < e.endsAt)
@@ -85,20 +84,26 @@ export async function findFreeRooms(actor: Actor | null, { day, from, to, week }
   return [...new Set(entries.map((e) => e.room))].filter((r) => !busy.has(r)).sort();
 }
 
+/** The plan a class belongs to, if the actor may change it. */
+async function editableClass(actor: Actor | null, entryId: number) {
+  const planId = Number.isInteger(entryId) ? await findEntryPlan(entryId) : null;
+  if (planId === null) throw new AppError(404, 'Занятието не е намерено.');
+  return editablePlan(actor, planId);
+}
+
 export type NewNote = { entryId: number; week: number | null; text: string };
 
-/** Adds a note that every student of that class sees. Publishers only. */
+/** Adds a note that everyone who reads the plan sees. Owner or admin only. */
 export async function addNote(actor: Actor | null, { entryId, week, text }: NewNote): Promise<Note> {
-  const publisher = requirePublisher(actor, 'Само публикуващ може да добавя бележки.');
+  const { actor: me } = await editableClass(actor, entryId);
   const clean = text.trim();
   if (clean.length < 1 || clean.length > 500) throw new AppError(400, 'Бележката трябва да е между 1 и 500 знака.');
   if (week !== null) checkWeek(week);
-  if (!Number.isInteger(entryId) || !(await entryExists(entryId))) throw new AppError(404, 'Занятието не е намерено.');
-  return insertNote(entryId, week, clean, publisher.id);
+  return insertNote(entryId, week, clean, me.id);
 }
 
-/** Deletes a class. Publishers only: a student is refused, whatever the UI shows. */
-export async function deleteClass(actor: Actor | null, id: number): Promise<void> {
-  requirePublisher(actor, 'Само публикуващ може да изтрива занятия.');
-  if (!Number.isInteger(id) || !(await deleteEntry(id))) throw new AppError(404, 'Занятието не е намерено.');
+/** Deletes a class from the plan's timetable. Owner or admin only, whatever the UI shows. */
+export async function deleteClass(actor: Actor | null, entryId: number): Promise<void> {
+  await editableClass(actor, entryId);
+  await deleteEntry(entryId);
 }

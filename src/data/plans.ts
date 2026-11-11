@@ -48,6 +48,14 @@ export async function listPlansFor(userId: string): Promise<{ own: Plan[]; share
   return { own: own.rows, shared: shared.rows };
 }
 
+/** Every plan except the user's own, for an admin. */
+export async function listOtherPlans(userId: string): Promise<Plan[]> {
+  const { rows } = await db().query(`SELECT ${PLAN} FROM plans p JOIN "user" u ON u.id = p.owner_id WHERE p.owner_id <> $1 ORDER BY p.id DESC`, [
+    userId,
+  ]);
+  return rows;
+}
+
 export async function isSharedWith(planId: number, userId: string): Promise<boolean> {
   const { rowCount } = await db().query('SELECT 1 FROM plan_shares WHERE plan_id = $1 AND user_id = $2', [planId, userId]);
   return rowCount === 1;
@@ -57,7 +65,7 @@ export async function deletePlan(id: number): Promise<void> {
   await db().query('DELETE FROM plans WHERE id = $1', [id]);
 }
 
-/** Saves the busy windows, and whether the worker should ask the model again. */
+/** Saves the parser's busy windows and queues the plan for the model. */
 export async function saveWindows(id: number, windows: TimeWindow[], from: 'parser' | 'model', modelStatus: ModelStatus): Promise<void> {
   await db().query(
     'UPDATE plans SET windows = $2, windows_from = $3, model_status = $4, updated_at = now() WHERE id = $1',
@@ -65,8 +73,20 @@ export async function saveWindows(id: number, windows: TimeWindow[], from: 'pars
   );
 }
 
-export async function setModelStatus(id: number, modelStatus: ModelStatus): Promise<void> {
-  await db().query('UPDATE plans SET model_status = $2, updated_at = now() WHERE id = $1', [id, modelStatus]);
+/**
+ * The worker's result: the model's windows ('idle'), or null when the model failed ('failed').
+ * Saved only while the plan is still 'processing': if the owner added a source or a message
+ * meanwhile, the plan is 'queued' again and this older result is dropped. Returns whether it was saved.
+ */
+export async function finishPlan(id: number, windows: TimeWindow[] | null): Promise<boolean> {
+  const { rowCount } = windows
+    ? await db().query(
+        `UPDATE plans SET windows = $2, windows_from = 'model', model_status = 'idle', updated_at = now()
+          WHERE id = $1 AND model_status = 'processing'`,
+        [id, JSON.stringify(windows)],
+      )
+    : await db().query(`UPDATE plans SET model_status = 'failed', updated_at = now() WHERE id = $1 AND model_status = 'processing'`, [id]);
+  return rowCount === 1;
 }
 
 /** Takes the oldest plan waiting for the model; one stuck in processing for 10 minutes is taken again. */

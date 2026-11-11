@@ -1,8 +1,8 @@
 'use client';
 
-import { useAction } from '@/app/imports/actions';
+import { useAction } from '@/app/client-actions';
 
-const ROLES = { student: 'Студент', publisher: 'Публикуващ', admin: 'Администратор' };
+const ROLES = { student: 'Студент', admin: 'Администратор' };
 
 /** Changes a user's role at once; the server refuses anyone who is not an admin. */
 export function RoleSelect({ userId, role, email, disabled }: { userId: string; role: string; email: string; disabled?: boolean }) {

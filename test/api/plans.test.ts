@@ -43,13 +43,13 @@ beforeEach(() => {
 });
 
 describe('plans over HTTP', () => {
-  test('POST /api/plans creates a plan (201), and refuses a group that does not exist (400) or nobody signed in (401)', async () => {
+  test('POST /api/plans creates a plan (201), and refuses a group that is not a TU group number (400) or nobody signed in (401)', async () => {
     as(ana);
     vi.mocked(plans.insertPlan).mockResolvedValue(7);
     const res = await createRoute(req('POST', { name: 'План', group: '222' }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: 7 });
-    expect((await createRoute(req('POST', { name: 'План', group: '999' }))).status).toBe(400);
+    expect((await createRoute(req('POST', { name: 'План', group: 'група 9' }))).status).toBe(400);
     as(null);
     expect((await createRoute(req('POST', { name: 'План', group: '222' }))).status).toBe(401);
   });
@@ -102,13 +102,13 @@ describe('plans over HTTP', () => {
 });
 
 describe('PATCH /api/users/:id', () => {
-  test('AC-21 an admin changes a role (204); a publisher gets 403 and nothing changes', async () => {
+  test('AC-21 an admin makes a student an admin (204); a student who sends the same request gets 403 and nothing changes', async () => {
     as({ id: 'a1', role: 'admin' });
     vi.mocked(setRoleById).mockResolvedValue(true);
-    expect((await roleRoute(req('PATCH', { role: 'publisher' }), params({ id: 's1' }))).status).toBe(204);
+    expect((await roleRoute(req('PATCH', { role: 'admin' }), params({ id: 's1' }))).status).toBe(204);
     vi.mocked(setRoleById).mockClear();
-    as({ id: 'p1', role: 'publisher' });
-    expect((await roleRoute(req('PATCH', { role: 'admin' }), params({ id: 'p1' }))).status).toBe(403);
+    as({ id: 's2', role: 'student' });
+    expect((await roleRoute(req('PATCH', { role: 'admin' }), params({ id: 's2' }))).status).toBe(403);
     expect(setRoleById).not.toHaveBeenCalled();
   });
 });

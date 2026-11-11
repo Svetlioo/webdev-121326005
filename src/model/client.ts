@@ -5,7 +5,6 @@ export type ScheduleSource = {
   text?: string;
   image?: { data: Buffer; type: string };
   instructions: string;
-  groups: string[];
 };
 
 /** What one plan gives the model: the student's instructions and photos, and the chat so far. */

@@ -1,9 +1,9 @@
 import { db } from './db';
 
-export type Role = 'student' | 'publisher' | 'admin';
+export type Role = 'student' | 'admin';
 export type UserRow = { id: string; email: string; name: string; role: Role };
 
-/** Sets a user's role by email (the make-publisher and make-admin scripts). Returns whether the user exists. */
+/** Sets a user's role by email (the make-admin script). Returns whether the user exists. */
 export async function setRole(email: string, role: Role): Promise<boolean> {
   const { rowCount } = await db().query('UPDATE "user" SET role = $1 WHERE email = $2', [role, email.toLowerCase()]);
   return rowCount === 1;

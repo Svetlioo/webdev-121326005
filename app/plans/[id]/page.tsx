@@ -1,19 +1,21 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { AppHeader } from '@/app/app-header';
-import { AutoRefresh } from '@/app/imports/actions';
+import { ActionButton, AutoRefresh, ImportForm } from '@/app/client-actions';
 import { getActor } from '@/app/session';
-import { WeekCalendar } from '@/app/week/week-calendar';
+import { WeekCalendar } from '@/app/plans/week-calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { AppError } from '@/src/services/errors';
+import { listImports } from '@/src/services/imports';
 import { getPlan } from '@/src/services/plans';
 import { LAST_WEEK } from '@/src/services/schedule';
 import { LABELS } from '@/src/services/windows';
 import { AddSource, ChatInput, DeletePlanButton, RemoveButton, ShareDialog } from '../plan-actions';
 
 const DAYS = ['', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб'];
+const IMPORT_STATUS = { queued: 'в опашката', processing: 'моделът чете', ready: 'готово за преглед', failed: 'неуспешно', published: 'публикувано' };
 const LABEL_DOT = { can_attend: 'bg-emerald-500', time_off: 'bg-amber-500', email: 'bg-red-500' };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ week?: string }> };
@@ -42,13 +44,15 @@ export default async function PlanPage({ params, searchParams }: Props) {
     }
     throw error;
   }
-  const { plan, isOwner, sources, messages, shares, classes } = view;
+  const { plan, isOwner, canEdit, sources, messages, shares, classes } = view;
+  const imports = canEdit ? await listImports(actor, plan.id) : [];
+  const importing = imports.some((i) => i.status === 'queued' || i.status === 'processing');
   const thinking = plan.modelStatus === 'queued' || plan.modelStatus === 'processing';
   const weekHref = (w: number) => `/plans/${plan.id}?week=${w}`;
 
   return (
     <div className="min-h-dvh bg-muted/40">
-      {thinking && <AutoRefresh />}
+      {(thinking || importing) && <AutoRefresh />}
       <AppHeader actor={actor} current="plans" />
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -59,10 +63,16 @@ export default async function PlanPage({ params, searchParams }: Props) {
             <h1 className="text-2xl font-semibold tracking-tight">{plan.name}</h1>
             <span className="flex flex-wrap gap-1">
               <Badge variant="secondary">група {plan.groupName}</Badge>
-              {isOwner ? <Badge variant="outline">ваша</Badge> : <Badge variant="outline">само за четене · {plan.ownerEmail}</Badge>}
+              {isOwner ? (
+                <Badge variant="outline">ваша</Badge>
+              ) : canEdit ? (
+                <Badge variant="outline">на {plan.ownerEmail} · администратор</Badge>
+              ) : (
+                <Badge variant="outline">само за четене · {plan.ownerEmail}</Badge>
+              )}
             </span>
           </div>
-          {isOwner && (
+          {canEdit && (
             <div className="flex gap-2">
               <ShareDialog planId={plan.id} shares={shares} />
               <DeletePlanButton planId={plan.id} />
@@ -73,14 +83,52 @@ export default async function PlanPage({ params, searchParams }: Props) {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
           {/* Left: what the plan is built from */}
           <aside className="grid content-start gap-4">
+            <section aria-labelledby="timetable-title" className="grid gap-3 rounded-lg border bg-background p-4">
+              <h2 id="timetable-title" className="flex items-center justify-between text-sm font-medium">
+                Разписание
+                <Link href={`/plans/${plan.id}/classes`} className="text-xs font-normal underline underline-offset-4">
+                  всички занятия, търсене, свободни зали
+                </Link>
+              </h2>
+              {canEdit ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Качете снимка на разписанието или адреса на страницата му. Моделът го чете, вие го преглеждате и публикувате в програмата.
+                  </p>
+                  <ImportForm planId={plan.id} />
+                  {imports.length > 0 && (
+                    <ul className="grid gap-1 text-sm">
+                      {imports.map((i) => (
+                        <li key={i.id} className="grid gap-1 rounded-md border p-2">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <Badge variant={i.status === 'failed' ? 'destructive' : 'secondary'}>{IMPORT_STATUS[i.status]}</Badge>
+                            <span className="min-w-0 truncate text-xs text-muted-foreground">{i.sourceUrl ?? 'снимка'}</span>
+                          </span>
+                          {i.error && <span className="text-xs text-destructive">{i.error}</span>}
+                          {i.status === 'ready' && (
+                            <Link href={`/plans/${plan.id}/imports/${i.id}`} className="text-xs underline underline-offset-4">
+                              Прегледай и публикувай
+                            </Link>
+                          )}
+                          {i.status === 'failed' && <ActionButton url={`/api/imports/${i.id}/retry`} method="POST" label="Опитай отново" variant="outline" />}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">Разписанието е внесено от собственика на програмата.</p>
+              )}
+            </section>
+
             <section aria-labelledby="sources-title" className="grid gap-3 rounded-lg border bg-background p-4">
               <h2 id="sources-title" className="text-sm font-medium">
                 Източници
               </h2>
-              {isOwner && <AddSource planId={plan.id} />}
+              {canEdit && <AddSource planId={plan.id} />}
               {sources.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {isOwner ? 'Добавете работното си време, срещи или снимка на график.' : 'Няма източници.'}
+                  {canEdit ? 'Добавете работното си време, срещи или снимка на график.' : 'Няма източници.'}
                 </p>
               ) : (
                 <ul className="grid gap-2">
@@ -92,7 +140,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={`/api/plans/${plan.id}/sources/${s.id}`} alt="Качена снимка" className="max-h-40 min-w-0 flex-1 rounded object-contain" />
                       )}
-                      {isOwner && <RemoveButton url={`/api/plans/${plan.id}/sources/${s.id}`} label="Премахни източника" />}
+                      {canEdit && <RemoveButton url={`/api/plans/${plan.id}/sources/${s.id}`} label="Премахни източника" />}
                     </li>
                   ))}
                 </ul>
@@ -138,7 +186,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
               </h2>
               {messages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {isOwner ? 'Опишете седмицата си с думи. Моделът ще извади заетите ви часове.' : 'Няма съобщения.'}
+                  {canEdit ? 'Опишете седмицата си с думи. Моделът ще извади заетите ви часове.' : 'Няма съобщения.'}
                 </p>
               ) : (
                 <ol className="grid max-h-72 gap-2 overflow-y-auto">
@@ -153,7 +201,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                   {thinking && <li className="justify-self-start rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">Чака модела…</li>}
                 </ol>
               )}
-              {isOwner && <ChatInput planId={plan.id} />}
+              {canEdit && <ChatInput planId={plan.id} />}
             </section>
 
             <section aria-labelledby="plan-week-title" className="rounded-lg border bg-background">
@@ -183,11 +231,13 @@ export default async function PlanPage({ params, searchParams }: Props) {
                 </div>
               </div>
               {classes.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">Няма занятия тази седмица.</p>
+                <p className="p-4 text-sm text-muted-foreground">
+                  Няма занятия на група {plan.groupName} тази седмица.{canEdit && ' Ако разписанието още не е внесено, качете го от „Разписание“.'}
+                </p>
               ) : (
                 <>
                   <div className="week-calendar hidden p-2 md:block">
-                    <WeekCalendar classes={classes} week={week} publisher={false} />
+                    <WeekCalendar classes={classes} week={week} canEdit={canEdit} />
                   </div>
                   <ul className="divide-y md:hidden">
                     {classes.map((c) => (

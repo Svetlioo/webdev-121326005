@@ -1,19 +1,13 @@
 import Link from 'next/link';
 import type { Actor } from '@/src/auth';
-import { canPublish } from '@/src/services/errors';
-import { SignOutButton } from './schedule/buttons';
-import { LinkGoogleButton } from './week/link-google';
+import { SignOutButton } from './buttons';
+import { LinkGoogleButton } from './link-google';
 
-type Page = 'plans' | 'week' | 'schedule' | 'imports' | 'users';
+type Page = 'plans' | 'users';
 
-/** The same menu on every page; links a role may not use are not shown (the services refuse them anyway). */
+/** The same menu on every page; the Users link is only for admins (the service refuses others anyway). */
 export function AppHeader({ actor, current }: { actor: Actor; current: Page }) {
-  const links: [Page, string, string][] = [
-    ['plans', '/plans', 'Моите програми'],
-    ['week', '/week', 'Седмица'],
-    ['schedule', '/schedule', 'Цялото разписание'],
-  ];
-  if (canPublish(actor)) links.push(['imports', '/imports', 'Внасяне']);
+  const links: [Page, string, string][] = [['plans', '/plans', 'Моите програми']];
   if (actor.role === 'admin') links.push(['users', '/admin/users', 'Потребители']);
 
   return (
@@ -33,6 +27,7 @@ export function AppHeader({ actor, current }: { actor: Actor; current: Page }) {
               {label}
             </Link>
           ))}
+          {actor.role === 'admin' && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs">администратор</span>}
         </nav>
         <div className="flex items-center gap-1">
           <LinkGoogleButton />

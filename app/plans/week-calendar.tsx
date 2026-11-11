@@ -39,8 +39,8 @@ function ClassBox({ event, timeText }: EventContentArg) {
   );
 }
 
-/** The week as a Teams-like calendar. Clicking a class opens its details and, for a publisher, the note form. */
-export function WeekCalendar({ classes, week, publisher }: { classes: CalendarClass[]; week: number; publisher: boolean }) {
+/** The week as a Teams-like calendar. Clicking a class opens its details and, for whoever may change the plan, the note form. */
+export function WeekCalendar({ classes, week, canEdit }: { classes: CalendarClass[]; week: number; canEdit: boolean }) {
   const [openId, setOpenId] = useState<number | null>(null);
   // Looked up from the props, so a note added in the dialog shows after the page refreshes.
   const open = classes.find((c) => c.id === openId);
@@ -116,7 +116,7 @@ export function WeekCalendar({ classes, week, publisher }: { classes: CalendarCl
             ) : (
               <p className="text-sm text-muted-foreground">Няма бележки.</p>
             )}
-            {publisher && <NoteForm entryId={open.id} week={week} label={`${open.course}, ${DAYS[open.day]} ${open.startsAt}`} />}
+            {canEdit && <NoteForm entryId={open.id} week={week} label={`${open.course}, ${DAYS[open.day]} ${open.startsAt}`} />}
           </DialogContent>
         )}
       </Dialog>

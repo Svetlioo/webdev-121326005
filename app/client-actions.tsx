@@ -37,7 +37,8 @@ const Error = ({ text }: { text: string }) =>
     </p>
   ) : null;
 
-export function ImportForm() {
+/** Imports a timetable into a plan: a page address or a photo, read by the model in the worker. */
+export function ImportForm({ planId }: { planId: number }) {
   const { busy, error, run } = useAction();
   return (
     <form
@@ -45,7 +46,7 @@ export function ImportForm() {
       onSubmit={(e) => {
         e.preventDefault();
         const form = e.currentTarget;
-        run('/api/imports', { method: 'POST', body: new FormData(form) }, () => form.reset());
+        run(`/api/plans/${planId}/imports`, { method: 'POST', body: new FormData(form) }, () => form.reset());
       }}
     >
       <label className="grid gap-1 text-sm">
@@ -53,7 +54,7 @@ export function ImportForm() {
         <Input name="url" type="url" placeholder="https://cs.fcst.bg/page.php?id=89" />
       </label>
       <label className="grid gap-1 text-sm">
-        или снимка (PNG, JPEG, WebP)
+        или снимка на разписанието (PNG, JPEG, WebP)
         <Input name="photo" type="file" accept="image/png,image/jpeg,image/webp" />
       </label>
       <label className="grid gap-1 text-sm">
@@ -62,7 +63,7 @@ export function ImportForm() {
       </label>
       <Error text={error} />
       <Button type="submit" disabled={busy} className="justify-self-start">
-        Внеси
+        Внеси разписанието
       </Button>
     </form>
   );

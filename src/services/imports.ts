@@ -1,5 +1,4 @@
 import type { Actor } from '../auth';
-import { listEntries } from '../data/entries';
 import {
   claimNextImport,
   findImport,
@@ -12,10 +11,10 @@ import {
   type ImportJob,
 } from '../data/imports';
 import { ModelOutputError, ModelTimeoutError, type ModelClient } from '../model/client';
-import { AppError, requirePublisher } from './errors';
+import { editablePlan } from './access';
+import { AppError } from './errors';
 import { LAST_WEEK } from './schedule';
 
-export const ONLY_PUBLISHERS = 'Само публикуващ може да внася разписания.';
 export const TIMEOUT_MESSAGE = 'Моделът не отговори навреме. Опитайте отново или въведете занятията ръчно.';
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -27,13 +26,15 @@ const PERIODS = [
   ['17:45', '18:30'], ['18:45', '19:30'], ['19:45', '20:30'], ['20:45', '21:30'],
 ];
 const STARTS = PERIODS.map((p) => p[0]);
+/** A TU Sofia group number: three digits and maybe a letter, such as 222 or 221а. */
+const GROUP = /^\d{3}[а-яa-z]?$/i;
 const ENDS = PERIODS.map((p) => p[1]);
 
 export type CheckedClass = DraftClass & { problems: string[] };
 export type ImportForReview = Omit<Import, 'draft'> & { draft: CheckedClass[]; canPublish: boolean };
 
 /** Why a draft class cannot be published, in words a publisher can act on. Empty means valid. */
-export function checkDraftClass(c: DraftClass, groups: string[]): string[] {
+export function checkDraftClass(c: DraftClass): string[] {
   const problems: string[] = [];
   if (!c.course.trim()) problems.push('Липсва дисциплина.');
   if (!['lecture', 'seminar', 'lab'].includes(c.type)) problems.push('Видът трябва да е лекция, семинар или упражнение.');
@@ -45,16 +46,12 @@ export function checkDraftClass(c: DraftClass, groups: string[]): string[] {
   if (!c.groups.length) problems.push('Липсва група.');
   if (new Set(c.groups.map((g) => g.name)).size < c.groups.length) problems.push('Група се повтаря в едно занятие.');
   for (const g of c.groups) {
-    if (!groups.includes(g.name)) problems.push(`Група ${g.name} не съществува в разписанието.`);
+    if (!GROUP.test(g.name)) problems.push(`Група „${g.name}“ не е номер на група в ТУ (като 222 или 221а).`);
     if (!['all', 'odd', 'even'].includes(g.parity)) problems.push(`Група ${g.name} е без четна/нечетна седмица.`);
   }
   return problems;
 }
 
-/** The groups that exist in the published schedule. */
-async function knownGroups(): Promise<string[]> {
-  return [...new Set((await listEntries()).flatMap((e) => e.groups.map((g) => g.name)))];
-}
 
 /** Whatever JSON the model returned, as draft classes. Wrong fields stay wrong, so the check flags them. */
 export function toDraft(output: unknown): DraftClass[] {
@@ -74,9 +71,10 @@ export function toDraft(output: unknown): DraftClass[] {
 
 export type StartImport = { sourceUrl?: string; image?: Buffer; imageType?: string; instructions?: string };
 
-/** Queues an import from a page or a photo. Publishers only; the model runs later, in the worker. */
-export async function startImport(actor: Actor | null, input: StartImport): Promise<Import> {
-  const publisher = requirePublisher(actor, ONLY_PUBLISHERS);
+/** Queues an import of a timetable into a plan, from a page or a photo. Owner or admin only;
+ *  the model runs later, in the worker. */
+export async function startImport(actor: Actor | null, planId: number, input: StartImport): Promise<Import> {
+  const { actor: me } = await editablePlan(actor, planId);
   const url = input.sourceUrl?.trim() || null;
   const image = input.image?.length ? input.image : null;
   if (Boolean(url) === Boolean(image)) throw new AppError(400, 'Посочете или адрес на страница, или снимка.');
@@ -84,60 +82,56 @@ export async function startImport(actor: Actor | null, input: StartImport): Prom
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
   const instructions = (input.instructions ?? '').trim().slice(0, 1000);
-  return insertImport({ sourceUrl: url, image, imageType: image ? input.imageType! : null, instructions }, publisher.id);
+  return insertImport(planId, { sourceUrl: url, image, imageType: image ? input.imageType! : null, instructions }, me.id);
 }
 
-export async function listImports(actor: Actor | null): Promise<Import[]> {
-  requirePublisher(actor, ONLY_PUBLISHERS);
-  return listImportRows();
+export async function listImports(actor: Actor | null, planId: number): Promise<Import[]> {
+  await editablePlan(actor, planId);
+  return listImportRows(planId);
 }
 
-async function loadImport(id: number): Promise<Import> {
+/** An import, if the actor may change the plan it belongs to. */
+async function loadImport(actor: Actor | null, id: number): Promise<Import> {
   const found = Number.isInteger(id) ? await findImport(id) : null;
   if (!found) throw new AppError(404, 'Внасянето не е намерено.');
+  await editablePlan(actor, found.planId);
   return found;
 }
 
-/** An import with every draft class checked against the 14 periods and the existing groups. */
+/** An import with every draft class checked against the 14 periods and the TU group numbers. */
 export async function getImport(actor: Actor | null, id: number): Promise<ImportForReview> {
-  requirePublisher(actor, ONLY_PUBLISHERS);
-  const found = await loadImport(id);
-  const groups = await knownGroups();
-  const draft = (found.draft ?? []).map((c) => ({ ...c, problems: checkDraftClass(c, groups) }));
+  const found = await loadImport(actor, id);
+  const draft = (found.draft ?? []).map((c) => ({ ...c, problems: checkDraftClass(c) }));
   const canPublish = found.status === 'ready' && draft.length > 0 && draft.every((c) => c.problems.length === 0);
   return { ...found, draft, canPublish };
 }
 
-async function loadReady(id: number): Promise<Import & { draft: DraftClass[] }> {
-  const found = await loadImport(id);
+async function loadReady(actor: Actor | null, id: number): Promise<Import & { draft: DraftClass[] }> {
+  const found = await loadImport(actor, id);
   if (found.status !== 'ready' || !found.draft) throw new AppError(400, 'Това внасяне не чака преглед.');
   return found as Import & { draft: DraftClass[] };
 }
 
 /** Removes one class from the draft, for instance one the model read wrong. */
 export async function removeDraftClass(actor: Actor | null, id: number, index: number): Promise<void> {
-  requirePublisher(actor, ONLY_PUBLISHERS);
-  const found = await loadReady(id);
+  const found = await loadReady(actor, id);
   if (!Number.isInteger(index) || index < 0 || index >= found.draft.length) throw new AppError(404, 'Занятието не е намерено.');
   await updateImport(id, 'ready', { draft: found.draft.filter((_, i) => i !== index) });
 }
 
-/** Publishes the draft: only now are rows written to entries. Refused while any class is invalid. */
+/** Publishes the draft into the plan: only now are rows written to entries. Refused while any class is invalid. */
 export async function publishImport(actor: Actor | null, id: number): Promise<void> {
-  requirePublisher(actor, ONLY_PUBLISHERS);
-  const found = await loadReady(id);
-  const groups = await knownGroups();
-  if (found.draft.length === 0 || found.draft.some((c) => checkDraftClass(c, groups).length > 0)) {
+  const found = await loadReady(actor, id);
+  if (found.draft.length === 0 || found.draft.some((c) => checkDraftClass(c).length > 0)) {
     throw new AppError(400, 'Поправете или премахнете невалидните занятия преди публикуване.');
   }
   // Published only once: a second press, or one racing a removal, finds the import no longer ready.
-  if (!(await publishDraft(id, found.draft))) throw new AppError(400, 'Това внасяне не чака преглед.');
+  if (!(await publishDraft(id, found.planId, found.draft))) throw new AppError(400, 'Това внасяне не чака преглед.');
 }
 
 /** Puts a failed import back in the queue. */
 export async function retryImport(actor: Actor | null, id: number): Promise<void> {
-  requirePublisher(actor, ONLY_PUBLISHERS);
-  if ((await loadImport(id)).status !== 'failed') throw new AppError(400, 'Само неуспешно внасяне може да се опита отново.');
+  if ((await loadImport(actor, id)).status !== 'failed') throw new AppError(400, 'Само неуспешно внасяне може да се опита отново.');
   await updateImport(id, 'queued');
 }
 
@@ -183,7 +177,7 @@ export async function processNextImport(model: ModelClient, getPage = fetchPage)
     let text: string | undefined;
     if (job.sourceUrl) text = pageText(await getPage(job.sourceUrl).catch((e) => Promise.reject(new PageError(e.message))));
     const image = job.image ? { data: job.image, type: job.imageType! } : undefined;
-    const output = await model.readSchedule({ text, image, instructions: job.instructions, groups: await knownGroups() });
+    const output = await model.readSchedule({ text, image, instructions: job.instructions });
     await updateImport(job.id, 'ready', { draft: toDraft(output), error: null });
   } catch (error) {
     await updateImport(job.id, 'failed', { error: failureMessage(error) });

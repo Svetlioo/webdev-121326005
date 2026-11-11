@@ -5,14 +5,13 @@ import { getActor } from '@/app/session';
 import { Badge } from '@/components/ui/badge';
 import type { Plan } from '@/src/data/plans';
 import { listMyPlans } from '@/src/services/plans';
-import { listClasses } from '@/src/services/schedule';
+import { SAMPLE_TITLE } from '@/src/data/templates';
 import { CreatePlanForm } from './plan-actions';
 
 export default async function PlansPage() {
   const actor = await getActor();
   if (!actor) redirect('/signin');
-  const { own, shared } = await listMyPlans(actor);
-  const groups = [...new Set((await listClasses(actor)).flatMap((c) => c.groups.map((g) => g.name)))].sort();
+  const { own, shared, others } = await listMyPlans(actor);
 
   return (
     <div className="min-h-dvh bg-muted/40">
@@ -21,7 +20,7 @@ export default async function PlansPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Моите програми</h1>
           <p className="text-sm text-muted-foreground">
-            Програмата е вашата седмица: добавяте работата и срещите си, а всяко занятие получава съвет дали можете да присъствате.
+            Програмата е вашата седмица: внасяте разписанието си (снимка или адрес), добавяте работата и срещите си, а всяко занятие получава съвет дали можете да присъствате.
           </p>
         </div>
 
@@ -29,11 +28,12 @@ export default async function PlansPage() {
           <h2 id="new-title" className="mb-3 text-sm font-medium">
             Нова програма
           </h2>
-          <CreatePlanForm groups={groups} />
+          <CreatePlanForm sampleTitle={SAMPLE_TITLE} />
         </section>
 
         <PlanList title="Мои" plans={own} empty="Още нямате програма. Създайте първата отгоре." />
         <PlanList title="Споделени с мен" plans={shared} empty="Никой още не е споделил програма с вас." shared />
+        {actor.role === 'admin' && <PlanList title="Всички останали (администратор)" plans={others} empty="Няма други програми." shared />}
       </main>
     </div>
   );
@@ -53,7 +53,7 @@ function PlanList({ title, plans, empty, shared }: { title: string; plans: Plan[
                 <span className="font-medium">{p.name}</span>
                 <span className="flex flex-wrap gap-1">
                   <Badge variant="secondary">група {p.groupName}</Badge>
-                  {shared && <Badge variant="outline">само за четене · {p.ownerEmail}</Badge>}
+                  {shared && <Badge variant="outline">{p.ownerEmail}</Badge>}
                   {p.modelStatus === 'queued' || p.modelStatus === 'processing' ? <Badge variant="outline">моделът чете…</Badge> : null}
                 </span>
               </Link>

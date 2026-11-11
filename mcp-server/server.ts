@@ -39,35 +39,40 @@ export const tools = [
   {
     name: 'get_my_week',
     description:
-      "Returns one TU Sofia group's classes for a week number (1-15): day, time, room, notes and whether a class is cancelled, with odd/even weeks and start weeks applied, the same as the week view.",
+      "Returns the classes of one of the caller's plans for a week number (1-15): day, time, room, notes and whether a class is cancelled, for the plan's group, with odd/even weeks and start weeks applied, the same as the plan page.",
     inputSchema: {
       type: 'object',
-      properties: { group: string('Group name, for example 222 or 221а'), week: integer('Week of the semester, 1 to 15') },
-      required: ['group', 'week'],
+      properties: { plan_id: integer('The id of a plan the caller owns or that is shared with them'), week: integer('Week of the semester, 1 to 15') },
+      required: ['plan_id', 'week'],
     },
   },
   {
     name: 'search_classes',
-    description: 'Searches the published schedule by course abbreviation, room number or group, and returns the matching classes with day, time, room, groups and start week.',
-    inputSchema: { type: 'object', properties: { query: string('Course, room or group, for example ПИ, 1211 or 222') }, required: ['query'] },
+    description: "Searches the timetable of one of the caller's plans by course abbreviation, room number or group, and returns the matching classes with day, time, room, groups and start week.",
+    inputSchema: {
+      type: 'object',
+      properties: { plan_id: integer('The id of the plan'), query: string('Course, room or group, for example ПИ, 1211 or 222') },
+      required: ['plan_id', 'query'],
+    },
   },
   {
     name: 'find_free_rooms',
-    description: 'Lists the rooms from the published schedule that have no class on a given day and time range in a given week.',
+    description: "Lists the rooms from the timetable of one of the caller's plans that have no class on a given day and time range in a given week.",
     inputSchema: {
       type: 'object',
       properties: {
+        plan_id: integer('The id of the plan'),
         day: integer('1 = Monday ... 6 = Saturday'),
         from: string('Start time, HH:MM, for example 07:30'),
         to: string('End time, HH:MM, for example 10:15'),
         week: integer('Week of the semester, 1 to 15'),
       },
-      required: ['day', 'from', 'to', 'week'],
+      required: ['plan_id', 'day', 'from', 'to', 'week'],
     },
   },
   {
     name: 'add_class_note',
-    description: 'Adds a note to one class, such as "Отменено" (cancelled) or "mandatory lecture", that every student of that class then sees. Publishers only.',
+    description: 'Adds a note to one class of a plan, such as "Отменено" (cancelled) or "mandatory lecture", that everyone who reads the plan then sees. Only the plan\'s owner or an admin.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -125,14 +130,14 @@ export async function handle(msg: Message, actor: Actor | null) {
       return textResult(msg.id, lectures.map((l) => l.number + '. ' + l.title).join('\n'), false);
     }
     if (name === 'get_my_week') {
-      return callService(msg.id, () => getWeek(actor, String(args.group ?? ''), Number(args.week)));
+      return callService(msg.id, () => getWeek(actor, Number(args.plan_id), Number(args.week)));
     }
     if (name === 'search_classes') {
-      return callService(msg.id, () => searchClasses(actor, String(args.query ?? '')));
+      return callService(msg.id, () => searchClasses(actor, Number(args.plan_id), String(args.query ?? '')));
     }
     if (name === 'find_free_rooms') {
       const query = { day: Number(args.day), from: String(args.from ?? ''), to: String(args.to ?? ''), week: Number(args.week) };
-      return callService(msg.id, () => findFreeRooms(actor, query));
+      return callService(msg.id, () => findFreeRooms(actor, Number(args.plan_id), query));
     }
     if (name === 'add_class_note') {
       const note = { entryId: Number(args.entry_id), week: args.week == null ? null : Number(args.week), text: String(args.text ?? '') };

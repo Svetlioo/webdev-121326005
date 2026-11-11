@@ -1,16 +1,15 @@
-import { requirePublisher } from '@/src/services/errors';
-import { ONLY_PUBLISHERS, startImport } from '@/src/services/imports';
+import { requireActor } from '@/src/services/errors';
+import { startImport } from '@/src/services/imports';
 import { errorResponse, getActor } from '@/app/session';
 
-/** Starts an import from a page address or a photo (multipart form: url, photo, instructions). */
-export async function POST(request: Request) {
+/** Starts an import of a timetable into the plan, from a page address or a photo (multipart: url, photo, instructions). */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await getActor();
-    requirePublisher(actor, ONLY_PUBLISHERS); // before the upload is read; the service checks again
+    const actor = requireActor(await getActor()); // before the upload is read; the service checks the owner
     const form = await request.formData().catch(() => new FormData());
     const photo = form.get('photo');
     const file = photo instanceof File && photo.size > 0 ? photo : null;
-    const created = await startImport(actor, {
+    const created = await startImport(actor, Number((await params).id), {
       sourceUrl: String(form.get('url') ?? ''),
       image: file ? Buffer.from(await file.arrayBuffer()) : undefined,
       imageType: file?.type,

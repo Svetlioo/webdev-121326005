@@ -24,7 +24,8 @@ const hhmm = (h: string, m = '00') => `${h.padStart(2, '0')}:${m}`;
 /** Busy windows from instructions in plain words. A sentence with a time range and no day means weekdays. */
 export function parseWindows(texts: string[]): TimeWindow[] {
   const windows: TimeWindow[] = [];
-  for (const sentence of texts.flatMap((t) => t.split(/[\n;]+|\.\s+/))) {
+  // Sentences, and the parts of one joined by ", а" / ", но"; a dot after "ч" is not the end of one.
+  for (const sentence of texts.flatMap((t) => t.split(/[\n;]+|(?<!ч)\.\s+|,\s*(?:а|но)\s+/))) {
     let days = DAY_WORDS.find(([re]) => re.test(sentence))?.[1];
     days ??= DAYS.filter(([re]) => re.test(sentence)).map(([, d]) => d);
     if (days.length === 0) days = [1, 2, 3, 4, 5];

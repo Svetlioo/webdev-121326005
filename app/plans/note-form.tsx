@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-/** A publisher's note on one class, for this week only or for every week. */
+/** A note on one class of a plan, for this week only or for every week. */
 export function NoteForm({ entryId, week, label }: { entryId: number; week: number; label: string }) {
   const router = useRouter();
   const [text, setText] = useState('');

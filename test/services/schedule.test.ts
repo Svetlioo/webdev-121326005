@@ -1,70 +1,153 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { deleteEntry, listEntries, type Entry } from '../../src/data/entries';
-import { deleteClass, listClasses } from '../../src/services/schedule';
+import type { Entry } from '../../src/data/entries';
+import { createPlan, sharePlan } from '../../src/services/plans';
+import { addNote, deleteClass, findFreeRooms, getWeek, listClasses, searchClasses } from '../../src/services/schedule';
+import { admin, ana, boris, installFakes, vera, type Store } from '../fakes';
 
-// The data layer is replaced, so these tests check the rules, not the database.
-vi.mock('../../src/data/entries', () => ({ listEntries: vi.fn(), deleteEntry: vi.fn(), entryExists: vi.fn() }));
-vi.mock('../../src/data/notes', () => ({ listNotes: vi.fn(), insertNote: vi.fn() }));
+// The data layer is an in-memory store (test/fakes.ts); a plan starts from the real sample timetable.
+vi.mock('../../src/data/entries');
+vi.mock('../../src/data/notes');
+vi.mock('../../src/data/plans');
+vi.mock('../../src/data/users');
 
-const student = { id: 'u1', role: 'student' };
-const publisher = { id: 'u2', role: 'publisher' };
-
-const entry = (id: number, day: number, startsAt: string): Entry => ({
-  id,
-  course: 'ПИ',
-  type: 'lab',
-  day,
-  startsAt,
-  endsAt: '10:15',
-  room: '1211',
-  startWeek: 2,
-  groups: [{ name: '222', parity: 'odd' }],
+let db: Store;
+let plan222: number;
+beforeEach(async () => {
+  vi.resetAllMocks();
+  db = installFakes();
+  plan222 = await createPlan(ana, { name: 'Зима', group: '222', fromSample: true });
 });
 
-beforeEach(() => vi.resetAllMocks());
+const show = (classes: Entry[]) => classes.map((c) => `${c.course} ${c.type} ${c.day} ${c.startsAt}–${c.endsAt} ${c.room}`);
+const sampleId = (course: string, type: string, day: number, startsAt: string) =>
+  db.entries.find((e) => e.planId === plan222 && e.course === course && e.type === type && e.day === day && e.startsAt === startsAt)!.id;
 
-describe('listClasses', () => {
-  test('AC-16 a signed-in student gets the classes from entries, sorted by day and time', async () => {
-    vi.mocked(listEntries).mockResolvedValue([entry(3, 2, '07:30'), entry(2, 1, '13:45'), entry(1, 1, '07:30')]);
-    const classes = await listClasses(student);
-    expect(classes.map((c) => c.id)).toEqual([1, 2, 3]);
+describe('the timetable of a plan', () => {
+  test('AC-16 a plan from the sample timetable has its 19 classes, sorted by day and time', async () => {
+    const classes = await listClasses(ana, plan222);
+    expect(classes).toHaveLength(19);
+    const order = classes.map((c) => `${c.day} ${c.startsAt}`);
+    expect(order).toEqual([...order].sort());
   });
 
-  test('keeps the database order for two classes at the same time', async () => {
-    vi.mocked(listEntries).mockResolvedValue([entry(5, 1, '13:45'), entry(4, 1, '13:45')]);
-    expect((await listClasses(student)).map((c) => c.id)).toEqual([4, 5]);
+  test('an empty plan has no classes until the student imports a timetable', async () => {
+    const empty = await createPlan(ana, { name: 'Празна', group: '222' });
+    expect(await listClasses(ana, empty)).toEqual([]);
+    expect(await getWeek(ana, empty, 3)).toEqual([]);
   });
 
-  test('somebody who is not signed in gets 401 and no classes', async () => {
-    await expect(listClasses(null)).rejects.toMatchObject({ status: 401 });
-    expect(listEntries).not.toHaveBeenCalled();
+  test('AC-1 group 222 sees the УП lab on Monday 13:45 in 705 in week 3, not in week 4 (even) or week 1 (before it starts)', async () => {
+    const lab = 'УП lab 1 13:45–16:30 705';
+    expect(show(await getWeek(ana, plan222, 3))).toContain(lab);
+    expect(show(await getWeek(ana, plan222, 4))).not.toContain(lab);
+    expect(show(await getWeek(ana, plan222, 1))).not.toContain(lab);
+  });
+
+  test('AC-2 group 221а does not see the Wednesday ПИ lab in week 1, and sees it in room 1211 in week 3', async () => {
+    const plan221a = await createPlan(ana, { name: '221а', group: '221а', fromSample: true });
+    const lab = 'ПИ lab 3 07:30–10:15 1211';
+    expect(show(await getWeek(ana, plan221a, 1))).not.toContain(lab);
+    expect(show(await getWeek(ana, plan221a, 3))).toContain(lab);
+  });
+
+  test.each([0, 16, 2.5, NaN])('week %s gives 400', async (week) => {
+    await expect(getWeek(ana, plan222, week)).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('AC-12 searching for "1211" lists the ПИ labs on Wednesday and Thursday and the КЗ lab on Saturday, and nothing else', async () => {
+    expect(show(await searchClasses(ana, plan222, ' 1211 '))).toEqual([
+      'ПИ lab 3 07:30–10:15 1211',
+      'ПИ lab 4 07:30–10:15 1211',
+      'КЗ lab 6 10:30–13:15 1211',
+    ]);
+  });
+
+  test('search finds a course by part of its name, a group by its exact name, and nothing for an empty text', async () => {
+    expect((await searchClasses(ana, plan222, 'java')).every((c) => c.course.includes('Java'))).toBe(true);
+    expect((await searchClasses(ana, plan222, '222')).every((c) => c.groups.some((g) => g.name === '222'))).toBe(true);
+    expect(await searchClasses(ana, plan222, '  ')).toEqual([]);
+  });
+
+  test('AC-13 free rooms on Monday 07:30–10:15 in week 3 do not include 1216, where the ОИТ lecture is', async () => {
+    const rooms = await findFreeRooms(ana, plan222, { day: 1, from: '07:30', to: '10:15', week: 3 });
+    expect(rooms).not.toContain('1216');
+    expect(rooms).toContain('705');
+  });
+
+  test('a room whose only class that day has not started yet is free', async () => {
+    expect(await findFreeRooms(ana, plan222, { day: 1, from: '13:45', to: '16:30', week: 1 })).toContain('705');
+    expect(await findFreeRooms(ana, plan222, { day: 1, from: '13:45', to: '16:30', week: 3 })).not.toContain('705');
+  });
+
+  test.each([
+    { day: 7, from: '07:30', to: '10:15', week: 3 },
+    { day: 1, from: '7:30', to: '10:15', week: 3 },
+    { day: 1, from: '10:15', to: '07:30', week: 3 },
+    { day: 1, from: '07:30', to: '10:15', week: 0 },
+  ])('a wrong day, time or week gives 400: %o', async (query) => {
+    await expect(findFreeRooms(ana, plan222, query)).rejects.toMatchObject({ status: 400 });
   });
 });
 
-describe('deleteClass', () => {
-  test('AC-18 a publisher deletes a class and its row is removed', async () => {
-    vi.mocked(deleteEntry).mockResolvedValue(true);
-    await deleteClass(publisher, 7);
-    expect(deleteEntry).toHaveBeenCalledWith(7);
+describe('notes', () => {
+  test('AC-7 the owner adds "Отменено" to the Saturday КЗ lab for week 6: cancelled in week 6, normal in week 8, the same for a reader', async () => {
+    const lab = sampleId('КЗ', 'lab', 6, '10:30');
+    await addNote(ana, { entryId: lab, week: 6, text: 'Отменено' });
+    await sharePlan(ana, plan222, 'boris@test.bg');
+    for (const who of [ana, boris]) {
+      expect((await getWeek(who, plan222, 6)).find((c) => c.id === lab)).toMatchObject({ cancelled: true, notes: [{ text: 'Отменено' }] });
+      expect((await getWeek(who, plan222, 8)).find((c) => c.id === lab)).toMatchObject({ cancelled: false, notes: [] });
+    }
   });
 
-  test('AC-18 a student who tries to delete a class gets 403 and nothing is removed', async () => {
-    await expect(deleteClass(student, 7)).rejects.toMatchObject({ status: 403 });
-    expect(deleteEntry).not.toHaveBeenCalled();
+  test('a note for every week shows every week, and only a note starting with "Отменено" cancels', async () => {
+    const lecture = sampleId('КЗ', 'lecture', 1, '16:45');
+    await addNote(ana, { entryId: lecture, week: null, text: '  Задължителна лекция ' });
+    expect((await getWeek(ana, plan222, 2)).find((c) => c.id === lecture)).toMatchObject({ cancelled: false, notes: [{ text: 'Задължителна лекция' }] });
   });
 
-  test('somebody who is not signed in gets 401 and nothing is removed', async () => {
-    await expect(deleteClass(null, 7)).rejects.toMatchObject({ status: 401 });
-    expect(deleteEntry).not.toHaveBeenCalled();
+  test('a reader or a stranger cannot add a note (403); an admin can', async () => {
+    const lab = sampleId('КЗ', 'lab', 6, '10:30');
+    await sharePlan(ana, plan222, 'boris@test.bg');
+    await expect(addNote(boris, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 403 });
+    await expect(addNote(vera, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 403 });
+    await expect(addNote(null, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 401 });
+    expect(db.notes).toHaveLength(0);
+    await addNote(admin, { entryId: lab, week: 6, text: 'Проверено' });
+    expect(db.notes).toHaveLength(1);
   });
 
-  test('a class that does not exist gives 404', async () => {
-    vi.mocked(deleteEntry).mockResolvedValue(false);
-    await expect(deleteClass(publisher, 999)).rejects.toMatchObject({ status: 404 });
+  test.each(['', '   ', 'x'.repeat(501)])('an empty or too long note gives 400', async (text) => {
+    await expect(addNote(ana, { entryId: sampleId('КЗ', 'lab', 6, '10:30'), week: 6, text })).rejects.toMatchObject({ status: 400 });
   });
 
-  test('an id that is not a number gives 404 without touching the database', async () => {
-    await expect(deleteClass(publisher, Number('abc'))).rejects.toMatchObject({ status: 404 });
-    expect(deleteEntry).not.toHaveBeenCalled();
+  test('a week outside 1–15 gives 400, and a class that does not exist 404', async () => {
+    await expect(addNote(ana, { entryId: sampleId('КЗ', 'lab', 6, '10:30'), week: 16, text: 'x' })).rejects.toMatchObject({ status: 400 });
+    await expect(addNote(ana, { entryId: 999, week: 6, text: 'x' })).rejects.toMatchObject({ status: 404 });
+    await expect(addNote(ana, { entryId: 1.5, week: 6, text: 'x' })).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('deleting a class', () => {
+  test('AC-18 the owner deletes a class and its row is gone; a reader gets 403 and nothing is removed', async () => {
+    const lab = sampleId('УП', 'lab', 1, '13:45');
+    await sharePlan(ana, plan222, 'boris@test.bg');
+    await expect(deleteClass(boris, lab)).rejects.toMatchObject({ status: 403 });
+    expect(db.entries.some((e) => e.id === lab)).toBe(true);
+    await deleteClass(ana, lab);
+    expect(db.entries.some((e) => e.id === lab)).toBe(false);
+    expect(await listClasses(ana, plan222)).toHaveLength(18);
+  });
+
+  test('somebody who is not signed in gets 401; a class that does not exist 404', async () => {
+    await expect(deleteClass(null, sampleId('УП', 'lab', 1, '13:45'))).rejects.toMatchObject({ status: 401 });
+    await expect(deleteClass(ana, 999)).rejects.toMatchObject({ status: 404 });
+  });
+
+  test('reading needs access: a stranger gets 403 for the week, search and free rooms', async () => {
+    await expect(getWeek(vera, plan222, 3)).rejects.toMatchObject({ status: 403 });
+    await expect(searchClasses(vera, plan222, 'ПИ')).rejects.toMatchObject({ status: 403 });
+    await expect(findFreeRooms(vera, plan222, { day: 1, from: '07:30', to: '10:15', week: 3 })).rejects.toMatchObject({ status: 403 });
+    await expect(listClasses(vera, plan222)).rejects.toMatchObject({ status: 403 });
   });
 });

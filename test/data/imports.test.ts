@@ -22,14 +22,15 @@ beforeEach(() => {
 });
 
 describe('publishDraft', () => {
-  test('replaces the classes and marks the import published in one transaction', async () => {
-    expect(await publishDraft(7, draft)).toBe(true);
+  test('replaces only that plan\'s classes and marks the import published, in one transaction', async () => {
+    expect(await publishDraft(7, 5, draft)).toBe(true);
     const sent = sql(client.query);
     expect(sent[0]).toBe('BEGIN');
     expect(sent[1]).toMatch(/UPDATE imports SET status = 'published'.* AND status = 'ready'/);
-    expect(sent[2]).toBe('DELETE FROM entries');
+    expect(sent[2]).toBe('DELETE FROM entries WHERE plan_id = $1');
+    expect(client.query.mock.calls[2][1]).toEqual([5]);
     expect(sent[3]).toMatch(/^INSERT INTO entries/);
-    expect(client.query.mock.calls[3][1]).toEqual(['УП', 'lab', 1, '13:45', '16:30', '705', 3]);
+    expect(client.query.mock.calls[3][1]).toEqual([5, 'УП', 'lab', 1, '13:45', '16:30', '705', 3]);
     expect(client.query.mock.calls[4][1]).toEqual([41, '222', 'odd']);
     expect(sent.at(-1)).toBe('COMMIT');
     expect(client.release).toHaveBeenCalled();
@@ -40,7 +41,7 @@ describe('publishDraft', () => {
       if (text.startsWith('INSERT INTO entry_groups')) throw new Error('bad group');
       return { rows: [{ id: 41 }], rowCount: 1 };
     });
-    await expect(publishDraft(7, draft)).rejects.toThrow('bad group');
+    await expect(publishDraft(7, 5, draft)).rejects.toThrow('bad group');
     expect(sql(client.query)).toContain('ROLLBACK');
     expect(sql(client.query)).not.toContain('COMMIT');
     expect(client.release).toHaveBeenCalled();
@@ -48,8 +49,8 @@ describe('publishDraft', () => {
 
   test('an import that is no longer ready is not published twice, and the classes stay', async () => {
     client.query.mockResolvedValue({ rows: [], rowCount: 0 });
-    expect(await publishDraft(7, draft)).toBe(false);
-    expect(sql(client.query)).not.toContain('DELETE FROM entries');
+    expect(await publishDraft(7, 5, draft)).toBe(false);
+    expect(sql(client.query)).not.toContain('DELETE FROM entries WHERE plan_id = $1');
     expect(sql(client.query).at(-1)).toBe('ROLLBACK');
     expect(client.release).toHaveBeenCalled();
   });
@@ -74,9 +75,10 @@ describe('the queue', () => {
 
   test('insert, list and find send their parameters and never return the photo bytes', async () => {
     pool.query.mockResolvedValue({ rows: [{ id: 1 }] });
-    await insertImport({ sourceUrl: 'https://a.bg', image: null, imageType: null, instructions: '' }, 'u2');
-    expect(pool.query.mock.calls[0][1]).toEqual(['https://a.bg', null, null, '', 'u2']);
-    expect(await listImports()).toEqual([{ id: 1 }]);
+    await insertImport(5, { sourceUrl: 'https://a.bg', image: null, imageType: null, instructions: '' }, 'u2');
+    expect(pool.query.mock.calls[0][1]).toEqual([5, 'https://a.bg', null, null, '', 'u2']);
+    expect(await listImports(5)).toEqual([{ id: 1 }]);
+    expect(pool.query.mock.calls[1][1]).toEqual([5]);
     expect(await findImport(1)).toEqual({ id: 1 });
     pool.query.mockResolvedValue({ rows: [] });
     expect(await findImport(2)).toBeNull();

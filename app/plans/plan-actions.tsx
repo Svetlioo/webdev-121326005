@@ -3,7 +3,7 @@
 import { ImagePlus, Send, Share2, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useAction } from '@/app/imports/actions';
+import { useAction } from '@/app/client-actions';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,8 +21,8 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** A new plan: a name and a group. Opens it once it exists. */
-export function CreatePlanForm({ groups }: { groups: string[] }) {
+/** A new plan: a name, a group, and whether to start from the sample timetable. Opens it once it exists. */
+export function CreatePlanForm({ sampleTitle }: { sampleTitle: string }) {
   const router = useRouter();
   const { busy, error, run } = useAction();
   return (
@@ -31,7 +31,8 @@ export function CreatePlanForm({ groups }: { groups: string[] }) {
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
-        run('/api/plans', json('POST', { name: form.get('name'), group: form.get('group') }), (body) => router.push(`/plans/${body.id}`));
+        const body = { name: form.get('name'), group: form.get('group'), fromSample: form.get('fromSample') === 'on' };
+        run('/api/plans', json('POST', body), (created) => router.push(`/plans/${created.id}`));
       }}
     >
       <label className="grid gap-1 text-sm">
@@ -40,15 +41,15 @@ export function CreatePlanForm({ groups }: { groups: string[] }) {
       </label>
       <label className="grid gap-1 text-sm">
         Група
-        <select name="group" className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
-          {groups.map((g) => (
-            <option key={g}>{g}</option>
-          ))}
-        </select>
+        <Input name="group" required pattern="\d{3}[а-яА-Яa-zA-Z]?" placeholder="напр. 222" className="sm:w-28" />
       </label>
       <Button type="submit" disabled={busy}>
         Създай програма
       </Button>
+      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-3">
+        <input type="checkbox" name="fromSample" />
+        Започни от примерното разписание: {sampleTitle}
+      </label>
       <div className="sm:col-span-3">
         <Problem text={error} />
       </div>

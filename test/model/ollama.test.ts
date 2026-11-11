@@ -3,12 +3,12 @@ import { ModelOutputError, ModelTimeoutError, ModelUnavailableError } from '../.
 import { createOllamaClient, modelFromEnv } from '../../src/model/ollama';
 
 // A fake fetch stands in for Ollama: tests never call the model.
-const source = { text: 'ПИ л.у. 1211', instructions: 'само 222', groups: ['221а', '222'] };
+const source = { text: 'ПИ л.у. 1211', instructions: 'само 222' };
 const answer = (content: string, status = 200) =>
   vi.fn(async () => new Response(JSON.stringify({ message: { content } }), { status })) as unknown as typeof fetch;
 
 describe('the Ollama client', () => {
-  test('sends the text, the instructions and the groups, and returns the parsed JSON', async () => {
+  test('sends the text and the instructions, and returns the parsed JSON', async () => {
     const fetchMock = answer('{"classes": []}');
     const client = createOllamaClient({ url: 'http://localhost:11434', model: 'qwen', timeoutMs: 1000, fetch: fetchMock });
     expect(await client.readSchedule(source)).toEqual({ classes: [] });
@@ -18,7 +18,7 @@ describe('the Ollama client', () => {
     expect(body).toMatchObject({ model: 'qwen', stream: false, options: { num_ctx: 32768 } });
     // Structured output: the answer's JSON Schema, not just "json".
     expect(body.format).toMatchObject({ type: 'object', required: ['classes'] });
-    expect(body.messages[0].content).toContain('221а, 222');
+    expect(body.messages[0].content).toContain('221а or 222');
     expect(body.messages[1].content).toContain('ПИ л.у. 1211');
     expect(body.messages[1].content).toContain('само 222');
   });
@@ -26,7 +26,7 @@ describe('the Ollama client', () => {
   test('a photo goes as base64', async () => {
     const fetchMock = answer('[]');
     const client = createOllamaClient({ url: 'http://m', model: 'qwen', timeoutMs: 1000, fetch: fetchMock });
-    await client.readSchedule({ image: { data: Buffer.from('png'), type: 'image/png' }, instructions: '', groups: [] });
+    await client.readSchedule({ image: { data: Buffer.from('png'), type: 'image/png' }, instructions: '' });
     const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body));
     expect(body.messages[1].images).toEqual([Buffer.from('png').toString('base64')]);
     expect(body.messages[1].content).toContain('photo');

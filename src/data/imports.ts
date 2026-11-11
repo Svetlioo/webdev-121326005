@@ -1,5 +1,5 @@
 import { db } from './db';
-import type { Parity } from './entries';
+import { insertEntries, type Parity } from './entries';
 
 export type ImportStatus = 'queued' | 'processing' | 'ready' | 'failed' | 'published';
 
@@ -17,6 +17,7 @@ export type DraftClass = {
 
 export type Import = {
   id: number;
+  planId: number;
   status: ImportStatus;
   sourceUrl: string | null;
   hasImage: boolean;
@@ -27,24 +28,24 @@ export type Import = {
 };
 
 /** A queued import as the worker needs it, with the photo. */
-export type ImportJob = { id: number; sourceUrl: string | null; image: Buffer | null; imageType: string | null; instructions: string };
+export type ImportJob = { id: number; planId: number; sourceUrl: string | null; image: Buffer | null; imageType: string | null; instructions: string };
 
-const COLUMNS = `id::int AS id, status, source_url AS "sourceUrl", image IS NOT NULL AS "hasImage", instructions,
+const COLUMNS = `id::int AS id, plan_id::int AS "planId", status, source_url AS "sourceUrl", image IS NOT NULL AS "hasImage", instructions,
   draft, error, created_at AS "createdAt"`;
 
 export type NewImport = { sourceUrl: string | null; image: Buffer | null; imageType: string | null; instructions: string };
 
-export async function insertImport(i: NewImport, userId: string): Promise<Import> {
+export async function insertImport(planId: number, i: NewImport, userId: string): Promise<Import> {
   const { rows } = await db().query(
-    `INSERT INTO imports (source_url, image, image_type, instructions, created_by) VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO imports (plan_id, source_url, image, image_type, instructions, created_by) VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING ${COLUMNS}`,
-    [i.sourceUrl, i.image, i.imageType, i.instructions, userId],
+    [planId, i.sourceUrl, i.image, i.imageType, i.instructions, userId],
   );
   return rows[0];
 }
 
-export async function listImports(): Promise<Import[]> {
-  const { rows } = await db().query(`SELECT ${COLUMNS} FROM imports ORDER BY id DESC LIMIT 50`);
+export async function listImports(planId: number): Promise<Import[]> {
+  const { rows } = await db().query(`SELECT ${COLUMNS} FROM imports WHERE plan_id = $1 ORDER BY id DESC LIMIT 20`, [planId]);
   return rows;
 }
 
@@ -63,7 +64,7 @@ export async function claimNextImport(): Promise<ImportJob | null> {
       WHERE id = (SELECT id FROM imports
                    WHERE status = 'queued' OR (status = 'processing' AND updated_at < now() - interval '10 minutes')
                    ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-      RETURNING id::int AS id, source_url AS "sourceUrl", image, image_type AS "imageType", instructions`,
+      RETURNING id::int AS id, plan_id::int AS "planId", source_url AS "sourceUrl", image, image_type AS "imageType", instructions`,
   );
   return rows[0] ?? null;
 }
@@ -81,10 +82,10 @@ export async function updateImport(
 }
 
 /**
- * Replaces the published classes with the draft and marks the import published, all or nothing.
+ * Replaces the plan's classes with the draft and marks the import published, all or nothing.
  * Returns false, changing nothing, when the import is no longer ready (already published).
  */
-export async function publishDraft(id: number, draft: DraftClass[]): Promise<boolean> {
+export async function publishDraft(id: number, planId: number, draft: DraftClass[]): Promise<boolean> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
@@ -96,21 +97,8 @@ export async function publishDraft(id: number, draft: DraftClass[]): Promise<boo
       await client.query('ROLLBACK');
       return false;
     }
-    await client.query('DELETE FROM entries');
-    for (const c of draft) {
-      const { rows } = await client.query(
-        `INSERT INTO entries (course, type, day, starts_at, ends_at, room, start_week)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-        [c.course, c.type, c.day, c.startsAt, c.endsAt, c.room, c.startWeek],
-      );
-      for (const g of c.groups) {
-        await client.query('INSERT INTO entry_groups (entry_id, group_name, parity) VALUES ($1, $2, $3)', [
-          rows[0].id,
-          g.name,
-          g.parity,
-        ]);
-      }
-    }
+    await client.query('DELETE FROM entries WHERE plan_id = $1', [planId]);
+    await insertEntries(planId, draft, client);
     await client.query('COMMIT');
     return true;
   } catch (error) {

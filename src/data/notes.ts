@@ -2,10 +2,13 @@ import { db } from './db';
 
 export type Note = { id: number; entryId: number; week: number | null; text: string };
 
-/** Every note on every class. */
-export async function listNotes(): Promise<Note[]> {
+/** Every note on the classes of one plan. */
+export async function listNotes(planId: number): Promise<Note[]> {
   const { rows } = await db().query(
-    'SELECT id::int AS id, entry_id::int AS "entryId", week, text FROM notes ORDER BY id',
+    `SELECT n.id::int AS id, n.entry_id::int AS "entryId", n.week, n.text
+       FROM notes n JOIN entries e ON e.id = n.entry_id
+      WHERE e.plan_id = $1 ORDER BY n.id`,
+    [planId],
   );
   return rows;
 }
