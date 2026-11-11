@@ -1,11 +1,10 @@
 import { headers } from 'next/headers';
-import { auth, type Actor } from '@/src/auth';
+import { actorFromHeaders, type Actor } from '@/src/auth';
 import { AppError } from '@/src/services/errors';
 
 /** The signed-in user for this request, checked against the session table, or null. */
 export async function getActor(): Promise<Actor | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session ? { id: session.user.id, role: session.user.role ?? 'student' } : null;
+  return actorFromHeaders(await headers());
 }
 
 /** Turns a service refusal into a JSON error; anything else is logged and hidden. */

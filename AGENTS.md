@@ -15,6 +15,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Test: `npm test`
 - Coverage: `npm run coverage`
 - MCP server: `npm run mcp`
+- MCP token: sign in with `curl -X POST http://localhost:3000/api/auth/sign-in/email -H 'content-type: application/json' -H 'origin: http://localhost:3000' -d '{"email":"...","password":"..."}'` and put the `token` from the answer in `.env` as `MCP_TOKEN`. It expires with the session (7 days).
 
 ## Conventions
 <!-- Folder layout, naming, where business rules live, how errors are returned to the client. -->
@@ -63,9 +64,9 @@ that talks to the database directly is a second, unguarded way into your data: n
 
 ## The MCP server
 <!-- Where it lives and how it authenticates. -->
-- Lives in `mcp-server/`, grew out of Exercise 1.
+- Lives in `mcp-server/server.ts` (run with `tsx`), grew out of Exercise 1. `handle(message, actor)` is exported so tests call it directly.
 - Every tool calls a service function; none touches the data layer or the database directly.
-- It carries a user, and enforces exactly the same authorization rules as the HTTP API. It signs in with `MCP_TOKEN`, which belongs to one user and grants exactly what that user may do.
+- It carries a user, and enforces exactly the same authorization rules as the HTTP API. It signs in with `MCP_TOKEN`, a Better Auth session token read through the `bearer` plugin (`actorFromToken` in `src/auth.ts`), so it belongs to one user and grants exactly what that user may do.
 - Adding a tool means adding a row to the table in `SPEC.md` too.
 
 ## Tests and coverage

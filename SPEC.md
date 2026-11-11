@@ -107,7 +107,7 @@ Own project, approved by the lecturer on 2026-10-28: a web app that makes the TU
 | AC-10 |  |
 | AC-12 | `test/services/week.test.ts`: "AC-12 searching for "1211" lists the ПИ labs on Wednesday and Thursday and the КЗ lab on Saturday, and nothing else" |
 | AC-13 | `test/services/week.test.ts`: "AC-13 free rooms on Monday 07:30–10:15 in week 3 do not include 1216, where the ОИТ lecture is" |
-| AC-14 |  |
+| AC-14 | `test/mcp-server.test.ts`: "AC-14 get_my_week with a student token for week 3 returns the same classes as the week view" and "AC-14 add_class_note called by a student is refused and no note is added" |
 | AC-15 | `test/proxy.test.ts`: "AC-15 a visitor who is not signed in and opens /schedule is redirected to /signin" |
 | AC-16 | `test/services/schedule.test.ts`: "AC-16 a signed-in student gets the classes from entries, sorted by day and time" |
 | AC-17 | `test/auth.test.ts`: "AC-17 a wrong password is refused with "Грешен имейл или парола" and no session is created" |

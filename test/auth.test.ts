@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { memoryAdapter } from 'better-auth/adapters/memory';
-import { createAuth } from '../src/auth';
+import { actorFromToken, createAuth } from '../src/auth';
 import { authMessage } from '../src/auth-messages';
 
 process.env.BETTER_AUTH_SECRET ??= 'test-secret-that-is-at-least-32-characters-long';
@@ -49,5 +49,19 @@ describe('sign-in', () => {
   test('an unknown error code still gives a readable sentence', () => {
     expect(authMessage(undefined)).toBe('Нещо се обърка. Опитайте отново.');
     expect(authMessage('SOMETHING_NEW')).toBe('Нещо се обърка. Опитайте отново.');
+  });
+});
+
+describe('MCP_TOKEN', () => {
+  test('a session token signs the MCP server in as that user, through Better Auth', async () => {
+    const { auth } = setup();
+    const { token } = await auth.api.signUpEmail({ body: { email: 'student@example.com', password: 'correct-horse', name: 'student' } });
+    expect(await actorFromToken(token!, auth)).toMatchObject({ role: 'student' });
+  });
+
+  test('a missing or wrong token is nobody', async () => {
+    const { auth } = setup();
+    expect(await actorFromToken(undefined, auth)).toBeNull();
+    expect(await actorFromToken('not-a-session-token', auth)).toBeNull();
   });
 });
