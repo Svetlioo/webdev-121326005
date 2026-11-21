@@ -77,3 +77,25 @@ docker build -t webdev-check .   # Docker image-ът, както в CI
 8. Демо с модела: на лаптопа `ollama serve` и `DATABASE_URL='<neon>' npm run worker`.
 9. Доказателства за Упражнение 4: `/health` 200, после 503 с грешен `DATABASE_URL`, rollback към предишен deploy,
    грешен JSON → 400, запис без вход → 401, втори акаунт трие чужди данни → 403, данните оцеляват след redeploy.
+
+## 5. Вход с Google (около 5 минути)
+
+1. https://console.cloud.google.com → горе вляво „Select a project“ → **New project** (напр. `tu-programa`).
+2. Меню → **APIs & Services → OAuth consent screen** (Google Auth Platform):
+   - **Branding**: име на приложението и твоя имейл за поддръжка.
+   - **Audience**: User type **External**, оставаш в **Testing**; в **Test users** добави своя Gmail
+     (и Gmail-ите, с които ще пробваш). В Testing могат да влизат само те, безплатно и без проверка от Google.
+3. **Clients → Create client** → Application type **Web application**:
+   - Authorized JavaScript origins: `http://localhost:3000` (по-късно и `https://<името>.onrender.com`)
+   - Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
+     (по-късно и `https://<името>.onrender.com/api/auth/callback/google`)
+4. Копирай **Client ID** и **Client secret** в `.env`:
+   ```
+   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=...
+   ```
+   и рестартирай `npm run dev`. В Render сложи същите две променливи.
+5. Проба:
+   - „Вход с Google“ с Gmail, който няма профил → нов профил.
+   - „Вход с Google“ с имейла на профил с парола → „Влезте с паролата си и свържете Google от профила“.
+   - Влез с парола → „Свържи Google“ (горе вдясно) → после можеш да влизаш и с Google в същия профил.
