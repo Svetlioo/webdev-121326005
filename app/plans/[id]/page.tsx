@@ -108,7 +108,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
                         <li key={i.id} className="grid gap-1 rounded-md border p-2">
                           <span className="flex flex-wrap items-center gap-2">
                             <Badge variant={i.status === 'failed' ? 'destructive' : 'secondary'}>{IMPORT_STATUS[i.status]}</Badge>
-                            <span className="min-w-0 truncate text-xs text-muted-foreground">{i.sourceUrl ?? 'снимка'}</span>
+                            {i.hasImage && <Badge variant="outline">{i.sourceUrl ? 'линк + снимка' : 'снимка'}</Badge>}
+                            {i.sourceUrl && <span className="min-w-0 basis-full truncate text-xs text-muted-foreground">{i.sourceUrl}</span>}
+                            {i.instructions && <span className="min-w-0 basis-full text-xs text-muted-foreground">Указания: {i.instructions}</span>}
                           </span>
                           {i.error && <span className="text-xs text-destructive">{i.error}</span>}
                           {i.status === 'queued' && longAgo(i.createdAt) && (

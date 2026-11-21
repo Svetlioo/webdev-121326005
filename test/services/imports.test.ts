@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   claimNextImport,
   findImport,
+  findImportImage,
   insertImport,
   listImports as listImportRows,
   publishDraft,
@@ -13,6 +14,7 @@ import { ModelOutputError, ModelTimeoutError, ModelUnavailableError, type ModelC
 import {
   fetchPage,
   getImport,
+  getImportImage,
   listImports,
   pageText,
   processNextImport,
@@ -34,6 +36,7 @@ vi.mock('../../src/data/imports', () => ({
   insertImport: vi.fn(),
   listImports: vi.fn(),
   findImport: vi.fn(),
+  findImportImage: vi.fn(),
   claimNextImport: vi.fn(),
   updateImport: vi.fn(),
   publishDraft: vi.fn(),
@@ -200,6 +203,17 @@ describe('review', () => {
     vi.mocked(listImportRows).mockResolvedValue([anImport()]);
     expect(await listImports(ana, 1)).toHaveLength(1);
     expect(listImportRows).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('the photo of an import', () => {
+  test('the owner sees the photo an import started with; a stranger gets 403; an import without one 404', async () => {
+    vi.mocked(findImport).mockResolvedValue(anImport({ hasImage: true }));
+    vi.mocked(findImportImage).mockResolvedValue({ data: photo, type: 'image/png' });
+    expect(await getImportImage(ana, 1)).toEqual({ data: photo, type: 'image/png' });
+    await expect(getImportImage(vera, 1)).rejects.toMatchObject({ status: 403 });
+    vi.mocked(findImportImage).mockResolvedValue(null);
+    await expect(getImportImage(ana, 1)).rejects.toMatchObject({ status: 404 });
   });
 });
 

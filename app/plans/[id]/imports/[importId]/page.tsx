@@ -32,6 +32,24 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
         {found.draft.length} занятия{invalid > 0 && `, ${invalid} невалидни: поправете или премахнете ги, за да публикувате`}.
         Програмата не се променя преди „Публикувай“; тогава това разписание замества сегашното ѝ.
       </p>
+      <div className="grid gap-2 rounded-lg border bg-background p-4 text-sm">
+        <p className="font-medium">Прочетено от</p>
+        {found.sourceUrl && (
+          <p className="truncate">
+            Линк:{' '}
+            <a href={found.sourceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+              {found.sourceUrl}
+            </a>
+          </p>
+        )}
+        {found.hasImage && (
+          <a href={`/api/imports/${found.id}/image`} target="_blank" rel="noreferrer" className="w-fit">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/imports/${found.id}/image`} alt="Снимката на разписанието" className="max-h-48 rounded-md border object-contain" />
+          </a>
+        )}
+        {found.instructions && <p>Указания: {found.instructions}</p>}
+      </div>
       <ul className="divide-y rounded-lg border bg-background text-sm">
         {found.draft.map((c, index) => (
           <li

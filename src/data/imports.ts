@@ -54,6 +54,12 @@ export async function findImport(id: number): Promise<Import | null> {
   return rows[0] ?? null;
 }
 
+/** The photo an import was started with, or null. */
+export async function findImportImage(id: number): Promise<{ data: Buffer; type: string } | null> {
+  const { rows } = await db().query('SELECT image AS data, image_type AS type FROM imports WHERE id = $1 AND image IS NOT NULL', [id]);
+  return rows[0] ?? null;
+}
+
 /**
  * Takes the oldest queued import and marks it processing, so two workers never take the same one.
  * waitSeconds: only an import that has waited at least that long (the backup worker lets the laptop go first).

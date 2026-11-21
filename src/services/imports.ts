@@ -2,6 +2,7 @@ import type { Actor } from '../auth';
 import {
   claimNextImport,
   findImport,
+  findImportImage,
   insertImport,
   listImports as listImportRows,
   publishDraft,
@@ -103,6 +104,14 @@ async function loadImport(actor: Actor | null, id: number): Promise<Import> {
 }
 
 /** An import with every draft class checked against the 14 periods and the TU group numbers. */
+/** The photo an import was started with, for whoever may change the plan. */
+export async function getImportImage(actor: Actor | null, id: number): Promise<{ data: Buffer; type: string }> {
+  await loadImport(actor, id);
+  const image = await findImportImage(id);
+  if (!image) throw new AppError(404, 'Внасянето няма снимка.');
+  return image;
+}
+
 export async function getImport(actor: Actor | null, id: number): Promise<ImportForReview> {
   const found = await loadImport(actor, id);
   const draft = (found.draft ?? []).map((c) => ({ ...c, problems: checkDraftClass(c) }));
