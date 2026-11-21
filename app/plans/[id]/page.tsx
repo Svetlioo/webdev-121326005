@@ -6,12 +6,12 @@ import { getActor } from '@/app/session';
 import { WeekCalendar } from '@/app/plans/week-calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
 import { AppError } from '@/src/services/errors';
 import { listImports } from '@/src/services/imports';
 import { getPlan } from '@/src/services/plans';
 import { LAST_WEEK } from '@/src/services/schedule';
 import { LABELS } from '@/src/services/windows';
+import { WeekNav } from '../week-nav';
 import { AddSource, ChatInput, DeletePlanButton, RemoveButton, ShareDialog, SubjectsPanel } from '../plan-actions';
 
 const DAYS = ['', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб'];
@@ -51,7 +51,6 @@ export default async function PlanPage({ params, searchParams }: Props) {
   // Waiting for more than two minutes means no worker is running (the model lives on the laptop).
   const longAgo = (iso: string | Date) => Date.now() - new Date(iso).getTime() > 120_000;
   const modelOff = thinking && longAgo(plan.updatedAt);
-  const weekHref = (w: number) => `/plans/${plan.id}?week=${w}`;
 
   return (
     <div className="min-h-dvh bg-muted/40">
@@ -242,18 +241,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                       {text}
                     </span>
                   ))}
-                  <nav aria-label="Седмици" className="flex gap-1">
-                    {week > 1 && (
-                      <Link href={weekHref(week - 1)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                        ‹ {week - 1}.
-                      </Link>
-                    )}
-                    {week < LAST_WEEK && (
-                      <Link href={weekHref(week + 1)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                        {week + 1}. ›
-                      </Link>
-                    )}
-                  </nav>
+                  <WeekNav planId={plan.id} week={week} last={LAST_WEEK} />
                 </div>
               </div>
               {classes.length === 0 ? (
