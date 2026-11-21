@@ -205,10 +205,8 @@ erDiagram
 **Как да го покажеш:**
 
 ```bash
-# 1. токен на студента (сайтът трябва да работи)
-curl -s -X POST http://localhost:3000/api/auth/sign-in/email -H 'content-type: application/json' \
-  -H 'origin: http://localhost:3000' -d '{"email":"student@test.bg","password":"test1234"}'
-# → копирай "token" в .env като MCP_TOKEN=...
+# 1. токен на студента направо в .env (сайтът трябва да работи; от папката на проекта)
+TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/sign-in/email -H 'content-type: application/json' -H 'origin: http://localhost:3000' -d '{"email":"student@test.bg","password":"test1234"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token') && (grep -q '^MCP_TOKEN=' .env && sed -i '' "s|^MCP_TOKEN=.*|MCP_TOKEN=$TOKEN|" .env || echo "MCP_TOKEN=$TOKEN" >> .env) && echo "MCP_TOKEN е записан в .env"
 
 # 2. автоматичната проверка (същата като в CI)
 node mcp-server/check.mjs -- npm run --silent mcp
