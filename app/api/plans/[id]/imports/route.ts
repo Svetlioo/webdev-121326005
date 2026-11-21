@@ -1,9 +1,11 @@
 import { requireActor } from '@/src/services/errors';
 import { startImport } from '@/src/services/imports';
-import { errorResponse, getActor } from '@/app/session';
+import { errorResponse, getActor, tooLarge } from '@/app/session';
 
 /** Starts an import of a timetable into the plan, from a page address or a photo (multipart: url, photo, instructions). */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const refused = tooLarge(request);
+  if (refused) return refused;
   try {
     const actor = requireActor(await getActor()); // before the upload is read; the service checks the owner
     const form = await request.formData().catch(() => new FormData());

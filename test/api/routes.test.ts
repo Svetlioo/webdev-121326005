@@ -5,7 +5,7 @@ import { POST as noteRoute } from '../../app/api/notes/route';
 import { POST as importRoute } from '../../app/api/plans/[id]/imports/route';
 import { getActor } from '../../app/session';
 import * as entries from '../../src/data/entries';
-import { findImport, insertImport, publishDraft, type Import } from '../../src/data/imports';
+import { findImport, insertImport, listImports, publishDraft, type Import } from '../../src/data/imports';
 import { createPlan, sharePlan } from '../../src/services/plans';
 import { ana, boris, installFakes, vera, type Store } from '../fakes';
 
@@ -38,6 +38,7 @@ let lab: number;
 beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
+  vi.mocked(listImports).mockResolvedValue([]);
   planId = await createPlan(ana, { name: 'Зима', myGroup: '222', fromSample: true });
   await sharePlan(ana, planId, 'boris@test.bg');
   lab = db.entries.find((e) => e.course === 'КЗ' && e.day === 6 && e.startsAt === '10:30')!.id;

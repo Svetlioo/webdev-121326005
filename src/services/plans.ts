@@ -41,6 +41,7 @@ import { labelClass, parseWindows, type Label } from './windows';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_PHOTOS = 5;
 /** A TU Sofia group number: three digits and maybe a letter, such as 222 or 221а. */
 const GROUP = /^\d{3}[а-яa-z]?$/i;
 
@@ -147,6 +148,9 @@ export async function addSource(actor: Actor | null, id: number, input: NewSourc
   if (text && text.length > 1000) throw new AppError(400, 'Инструкцията трябва да е до 1000 знака.');
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
+  if (image && (await listSources(id)).filter((s) => s.imageType).length >= MAX_PHOTOS) {
+    throw new AppError(400, `Програмата може да има най-много ${MAX_PHOTOS} снимки.`);
+  }
   await insertSource(id, text ? { text } : { image: image!, imageType: input.imageType! });
   await recompute(id);
 }

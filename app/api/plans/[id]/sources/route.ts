@@ -1,9 +1,11 @@
 import { requireActor } from '@/src/services/errors';
 import { addSource } from '@/src/services/plans';
-import { errorResponse, getActor } from '@/app/session';
+import { errorResponse, getActor, tooLarge } from '@/app/session';
 
 /** Adds a source: a multipart form with `text`, or with a `photo`. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const refused = tooLarge(request);
+  if (refused) return refused;
   try {
     const actor = requireActor(await getActor()); // before the upload is read; the service checks the owner
     const form = await request.formData().catch(() => new FormData());

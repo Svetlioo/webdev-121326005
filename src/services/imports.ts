@@ -82,6 +82,9 @@ export async function startImport(actor: Actor | null, planId: number, input: St
   if (url && !isTuSofiaPage(url)) throw new AppError(400, 'Може да се внася само страница на ТУ София (tu-sofia.bg или fcst.bg).');
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
+  if ((await listImportRows(planId)).some((i) => i.status === 'queued' || i.status === 'processing')) {
+    throw new AppError(409, 'Предишното внасяне още се обработва. Изчакайте го.');
+  }
   const instructions = (input.instructions ?? '').trim().slice(0, 1000);
   return insertImport(planId, { sourceUrl: url, image, imageType: image ? input.imageType! : null, instructions }, me.id);
 }
