@@ -19,6 +19,8 @@ const DAYS: [RegExp, number][] = [
 // "от 9:00 до 16:30", "9:00-16:30", "от 9 до 13 ч."
 const RANGE = /(от\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:ч\.?)?\s*(?:до|-|–|—)\s*(\d{1,2})(?:[:.](\d{2}))?/gi;
 
+const DAY_START = '07:30';
+const DAY_END = '21:30';
 const hhmm = (h: string, m = '00') => `${h.padStart(2, '0')}:${m}`;
 
 /** Busy windows from instructions in plain words. A sentence with a time range and no day means weekdays. */
@@ -28,14 +30,25 @@ export function parseWindows(texts: string[]): TimeWindow[] {
   for (const sentence of texts.flatMap((t) => t.split(/[\n;]+|(?<!ч)\.\s+|,\s*(?:а|но)\s+/))) {
     let days = DAY_WORDS.find(([re]) => re.test(sentence))?.[1];
     days ??= DAYS.filter(([re]) => re.test(sentence)).map(([, d]) => d);
-    if (days.length === 0) days = [1, 2, 3, 4, 5];
+    const namedDays = days.length > 0;
+    if (!namedDays) days = [1, 2, 3, 4, 5];
     const what = /работ/i.test(sentence) ? 'работа' : /лекци|курс|час/i.test(sentence) ? 'друго занятие' : 'зает';
+    const found: { from: string; to: string }[] = [];
+    let rest = sentence;
     for (const m of sentence.matchAll(RANGE)) {
-      const [, from, h1, m1, h2, m2] = m;
+      const [text, from, h1, m1, h2, m2] = m;
+      rest = rest.replace(text, ' ');
       if (!from && !m1 && !m2) continue; // "2-3" alone is not a time
-      const window = { from: hhmm(h1, m1), to: hhmm(h2, m2) };
-      if (Number(h1) > 23 || Number(h2) > 23 || window.from >= window.to) continue;
-      for (const day of days) windows.push({ day, ...window, what });
+      found.push({ from: hhmm(h1, m1), to: hhmm(h2, m2) });
+    }
+    // "след 17:00" is busy until the end of the day; "до 12" (with no "от") is busy from the start.
+    for (const m of rest.matchAll(/след\s*(\d{1,2})(?:[:.](\d{2}))?/gi)) found.push({ from: hhmm(m[1], m[2]), to: DAY_END });
+    for (const m of rest.matchAll(/(?<![а-яa-z])до\s*(\d{1,2})(?:[:.](\d{2}))?/gi)) found.push({ from: DAY_START, to: hhmm(m[1], m[2]) });
+    // "в събота не мога" with no time is the whole day.
+    if (found.length === 0 && namedDays && /не мога|не съм свобод|зает|заета|ангажиран|работ/i.test(sentence)) found.push({ from: DAY_START, to: DAY_END });
+    for (const w of found) {
+      if (w.from >= w.to || w.to > '23:59') continue; // backwards, or an hour such as 25
+      for (const day of days) windows.push({ day, ...w, what });
     }
   }
   return windows;

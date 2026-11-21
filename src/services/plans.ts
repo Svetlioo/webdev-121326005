@@ -61,8 +61,14 @@ export type PlanView = {
 const groupsOf = (entries: Entry[]) => [...new Set(entries.flatMap((e) => e.groups.map((g) => g.name)))].sort();
 
 /** Reads approximate busy times from the instructions at once (no AI), and queues the plan for the model. */
+/** How the chat records an instruction or photo the student removed. */
+export const REMOVED = 'Махнах';
+
+/** Until the model answers, the parser reads the instructions and what the student wrote in the chat. */
 async function recompute(planId: number): Promise<void> {
-  const texts = (await listSources(planId)).flatMap((s) => (s.text ? [s.text] : []));
+  const sources = (await listSources(planId)).flatMap((s) => (s.text ? [s.text] : []));
+  const said = (await listMessages(planId)).flatMap((m) => (m.role === 'user' && !m.content.startsWith(REMOVED) ? [m.content] : []));
+  const texts = [...sources, ...said];
   await saveWindows(planId, parseWindows(texts), 'parser', 'queued');
 }
 
@@ -122,7 +128,11 @@ export async function getPlan(actor: Actor | null, id: number, week: number): Pr
   const { plan, isOwner, canEdit, actor: me } = await readablePlan(actor, id);
   const entries = await listEntries(id);
   const classes = (await getWeek(me, id, week)).map((c) =>
-    c.cancelled ? { ...c, label: null, reason: 'Занятието е отменено.' } : { ...c, ...labelClass(c, plan.windows) },
+    c.cancelled
+      ? { ...c, label: null, reason: 'Занятието е отменено.' }
+      : c.skipped
+        ? { ...c, label: null, reason: 'Не ходите на това занятие.' }
+        : { ...c, ...labelClass(c, plan.windows) },
   );
   return {
     plan,
@@ -157,7 +167,10 @@ export async function addSource(actor: Actor | null, id: number, input: NewSourc
 
 export async function removeSource(actor: Actor | null, id: number, sourceId: number): Promise<void> {
   await editablePlan(actor, id);
-  if (!Number.isInteger(sourceId) || !(await deleteSource(id, sourceId))) throw new AppError(404, 'Източникът не е намерен.');
+  const source = Number.isInteger(sourceId) ? (await listSources(id)).find((s) => s.id === sourceId) : undefined;
+  if (!source || !(await deleteSource(id, sourceId))) throw new AppError(404, 'Източникът не е намерен.');
+  // Said in the chat, so the model does not bring it back from an older message.
+  await insertMessage(id, 'user', source.text ? `${REMOVED} „${source.text}“` : `${REMOVED} снимката.`);
   await recompute(id);
 }
 

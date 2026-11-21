@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Entry } from '../../src/data/entries';
 import { chooseSubject, createPlan, setMyGroup, sharePlan } from '../../src/services/plans';
-import { addNote, deleteClass, getWeek, listClasses, searchClasses, subjectsOf } from '../../src/services/schedule';
+import { addNote, deleteClass, deleteNote, getWeek, listClasses, searchClasses, subjectsOf } from '../../src/services/schedule';
 import { admin, ana, boris, installFakes, vera, type Store } from '../fakes';
 
 // The data layer is an in-memory store (test/fakes.ts); a plan starts from the real sample timetable.
@@ -130,6 +130,25 @@ describe('notes', () => {
 
   test.each(['', '   ', 'x'.repeat(501)])('an empty or too long note gives 400', async (text) => {
     await expect(addNote(ana, { entryId: sampleId('КЗ', 'lab', 6, '10:30'), week: 6, text })).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('AC-24 "Не ходя" for week 3 skips the Monday УП lab only in week 3; removing the note brings it back; a reader cannot remove it', async () => {
+    const lab = sampleId('УП', 'lab', 1, '13:45');
+    const note = await addNote(ana, { entryId: lab, week: 3, text: 'Не ходя' });
+    expect((await getWeek(ana, plan222, 3)).find((c) => c.id === lab)).toMatchObject({ skipped: true, cancelled: false });
+    expect((await getWeek(ana, plan222, 5)).find((c) => c.id === lab)).toMatchObject({ skipped: false });
+    await sharePlan(ana, plan222, 'boris@test.bg');
+    await expect(deleteNote(boris, note.id)).rejects.toMatchObject({ status: 403 });
+    await expect(deleteNote(null, note.id)).rejects.toMatchObject({ status: 401 });
+    expect(db.notes).toHaveLength(1);
+    await deleteNote(ana, note.id);
+    expect(db.notes).toHaveLength(0);
+    expect((await getWeek(ana, plan222, 3)).find((c) => c.id === lab)).toMatchObject({ skipped: false });
+  });
+
+  test('removing a note that does not exist gives 404', async () => {
+    await expect(deleteNote(ana, 999)).rejects.toMatchObject({ status: 404 });
+    await expect(deleteNote(ana, NaN)).rejects.toMatchObject({ status: 404 });
   });
 
   test('a week outside 1–15 gives 400, and a class that does not exist 404', async () => {

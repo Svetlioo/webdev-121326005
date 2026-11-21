@@ -2,14 +2,14 @@
 // Reading needs read access to the plan; changing it needs the owner or an admin (src/services/access.ts).
 import type { Actor } from '../auth';
 import { deleteEntry, findEntryPlan, listEntries, type Entry } from '../data/entries';
-import { insertNote, listNotes, type Note } from '../data/notes';
+import { deleteNote as deleteNoteRow, findNoteEntry, insertNote, listNotes, type Note } from '../data/notes';
 import type { Plan } from '../data/plans';
 import { editablePlan, readablePlan } from './access';
 import { AppError } from './errors';
 
 export const LAST_WEEK = 15;
 
-export type WeekClass = Entry & { notes: Note[]; cancelled: boolean };
+export type WeekClass = Entry & { notes: Note[]; cancelled: boolean; skipped: boolean };
 
 const byDayAndTime = (a: Entry, b: Entry) => a.day - b.day || a.startsAt.localeCompare(b.startsAt) || a.id - b.id;
 
@@ -55,6 +55,9 @@ export function subjectsOf(entries: Entry[], plan: Pick<Plan, 'myGroup' | 'subje
 
 /** A note "Отменено" (for that week, or for every week) cancels the class. */
 const isCancelling = (note: Note) => /^отменено/i.test(note.text.trim());
+/** A note "Не ходя" (for that week, or for every week) means the student skips that one class. */
+export const SKIP_NOTE = 'Не ходя';
+const isSkipping = (note: Note) => /^не ходя/i.test(note.text.trim());
 
 /** Every class of the plan's timetable, sorted by day and start time. */
 export async function listClasses(actor: Actor | null, planId: number): Promise<Entry[]> {
@@ -75,7 +78,7 @@ export async function getWeek(actor: Actor | null, planId: number, week: number)
     .sort(byDayAndTime)
     .map((e) => {
       const own = notes.filter((n) => n.entryId === e.id && (n.week === null || n.week === week));
-      return { ...e, notes: own, cancelled: own.some(isCancelling) };
+      return { ...e, notes: own, cancelled: own.some(isCancelling), skipped: own.some(isSkipping) };
     });
 }
 
@@ -110,6 +113,14 @@ export async function addNote(actor: Actor | null, { entryId, week, text }: NewN
   if (clean.length < 1 || clean.length > 500) throw new AppError(400, 'Бележката трябва да е между 1 и 500 знака.');
   if (week !== null) checkWeek(week);
   return insertNote(entryId, week, clean, me.id);
+}
+
+/** Removes a note (also "Не ходя", which brings the class back). Owner or admin only. */
+export async function deleteNote(actor: Actor | null, noteId: number): Promise<void> {
+  const entryId = Number.isInteger(noteId) ? await findNoteEntry(noteId) : null;
+  if (entryId === null) throw new AppError(404, 'Бележката не е намерена.');
+  await editableClass(actor, entryId);
+  await deleteNoteRow(noteId);
 }
 
 /** Deletes a class from the plan's timetable. Owner or admin only, whatever the UI shows. */

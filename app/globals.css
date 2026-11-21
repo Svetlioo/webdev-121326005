@@ -190,6 +190,14 @@
   background: oklch(0.32 0.06 300);
   color: oklch(0.93 0.03 300);
 }
+.week-calendar .fc .class-skipped {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
 .dark .week-calendar .fc .class-cancelled {
   background: var(--muted);
   color: var(--muted-foreground);

@@ -81,6 +81,7 @@ describe('plans over HTTP', () => {
     expect((await shareRoute(req('POST', { email: 'boris@test.bg' }), params({ id: '1' }))).status).toBe(201);
     expect((await unshareRoute(req('DELETE'), params({ id: '1', userId: 'boris' }))).status).toBe(204);
     vi.mocked(plans.deleteSource).mockResolvedValue(true);
+    vi.mocked(plans.listSources).mockResolvedValue([{ id: 1, text: 'Работя от 9:00 до 16:30', imageType: null }] as never);
     expect((await removeSourceRoute(req('DELETE'), params({ id: '1', sourceId: '1' }))).status).toBe(204);
     expect((await deletePlanRoute(req('DELETE'), params({ id: '1' }))).status).toBe(204);
   });

@@ -24,6 +24,14 @@ describe('reading busy times from plain words', () => {
     ]);
   });
 
+  test('"след 17:00" is busy until the evening, "до 12" from the morning, a day with no time all day', () => {
+    expect(parseWindows(['В понеделник след 17:00 ч. не мога'])).toEqual([{ day: 1, from: '17:00', to: '21:30', what: 'зает' }]);
+    expect(parseWindows(['Във вторник работя до 12'])).toEqual([{ day: 2, from: '07:30', to: '12:00', what: 'работа' }]);
+    expect(parseWindows(['В събота не мога'])).toEqual([{ day: 6, from: '07:30', to: '21:30', what: 'зает' }]);
+    expect(parseWindows(['В четвъртък от 14 до 18 ч. и след 20:00 съм зает']).map((w) => `${w.from}-${w.to}`)).toEqual(['14:00-18:00', '20:00-21:30']);
+    expect(parseWindows(['Чакам до 5 минути', 'Харесвам петък', 'В сряда мога да идвам цял ден'])).toEqual([]); // "до 5" is before the day starts; a day without "не мога" is nothing
+  });
+
   test('numbers that are not times, impossible hours and backwards ranges are ignored', () => {
     expect(parseWindows(['Имам 2-3 часа свободни', 'от 25:00 до 26:00', 'от 18:00 до 9:00'])).toEqual([]);
   });

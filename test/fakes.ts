@@ -42,9 +42,13 @@ export function installFakes(): Store {
 
   vi.mocked(notes.listNotes).mockImplementation(async (planId) => db.notes.filter((n) => n.planId === planId).map(strip));
   vi.mocked(notes.insertNote).mockImplementation(async (entryId, week, text) => {
-    const note = { id: db.notes.length + 1, entryId, week, text };
+    const note = { id: Math.max(0, ...db.notes.map((n) => n.id)) + 1, entryId, week, text };
     db.notes.push({ ...note, planId: db.entries.find((e) => e.id === entryId)!.planId });
     return note;
+  });
+  vi.mocked(notes.findNoteEntry).mockImplementation(async (id) => db.notes.find((n) => n.id === id)?.entryId ?? null);
+  vi.mocked(notes.deleteNote).mockImplementation(async (id) => {
+    db.notes = db.notes.filter((n) => n.id !== id);
   });
 
   vi.mocked(users.findUserIdByEmail).mockImplementation(async (email) => (/^(ana|boris|vera|admin)@test\.bg$/.test(email) ? email.split('@')[0] : null));

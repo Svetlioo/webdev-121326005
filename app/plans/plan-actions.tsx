@@ -116,58 +116,6 @@ export function SubjectsPanel(props: {
 }
 
 /** Adds an instruction in plain words, or a photo. */
-export function AddSource({ planId }: { planId: number }) {
-  const { busy, error, run } = useAction();
-  const [text, setText] = useState('');
-  const send = (body: FormData, after?: () => void) => run(`/api/plans/${planId}/sources`, { method: 'POST', body }, after);
-  return (
-    <div className="grid gap-2">
-      <form
-        className="grid gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const body = new FormData();
-          body.set('text', text);
-          send(body, () => setText(''));
-        }}
-      >
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={3}
-          maxLength={1000}
-          placeholder="напр. Работя от 9:00 до 16:30 в делничните дни"
-          aria-label="Инструкция"
-          className="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" size="sm" disabled={busy || !text.trim()}>
-            Добави инструкция
-          </Button>
-          <Button render={<label />} nativeButton={false} variant="outline" size="sm" className="cursor-pointer" aria-disabled={busy}>
-            <ImagePlus data-icon="inline-start" />
-            Качи снимка
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="sr-only"
-              aria-label="Качи снимка"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const body = new FormData();
-                body.set('photo', file);
-                send(body);
-                e.target.value = '';
-              }}
-            />
-          </Button>
-        </div>
-      </form>
-      <Problem text={error} />
-    </div>
-  );
-}
 
 /** A small × that sends one request, such as removing a source or a share. */
 export function RemoveButton({ url, label }: { url: string; label: string }) {
@@ -183,6 +131,7 @@ export function RemoveButton({ url, label }: { url: string; label: string }) {
 }
 
 /** The chat input: a message to the model about the plan. */
+/** The only place the student writes: a message to the model, or a photo (such as a shift rota) for it to read. */
 export function ChatInput({ planId }: { planId: number }) {
   const { busy, error, run } = useAction();
   const [text, setText] = useState('');
@@ -199,13 +148,31 @@ export function ChatInput({ planId }: { planId: number }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={2000}
-          placeholder="Напишете на модела, напр. „и в събота съм на работа до 12“"
+          placeholder="напр. „Работя от 9:00 до 16:30 в делничните дни“"
           aria-label="Съобщение"
         />
+        <Button render={<label />} nativeButton={false} variant="outline" size="icon" className="cursor-pointer" aria-disabled={busy} title="Качи снимка">
+          <ImagePlus />
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            aria-label="Качи снимка"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const body = new FormData();
+              body.set('photo', file);
+              run(`/api/plans/${planId}/sources`, { method: 'POST', body });
+              e.target.value = '';
+            }}
+          />
+        </Button>
         <Button type="submit" size="icon" disabled={busy || !text.trim()} aria-label="Изпрати">
           <Send />
         </Button>
       </div>
+      {busy && <p className="text-xs text-muted-foreground">Изпраща се…</p>}
       <Problem text={error} />
     </form>
   );

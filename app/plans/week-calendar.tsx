@@ -5,11 +5,10 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { useMemo, useState } from 'react';
 import type { EventContentArg } from '@fullcalendar/core';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { WeekClass } from '@/src/services/schedule';
 import { LABELS, type Label } from '@/src/services/windows';
-import { NoteForm } from './note-form';
+import { NoteForm, NoteBadge, SkipButtons } from './note-form';
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота'];
 const TYPES = { lecture: 'Лекция', seminar: 'Семинар', lab: 'Упражнение' };
@@ -32,9 +31,20 @@ function ClassBox({ event, timeText }: EventContentArg) {
         {TYPES[c.type]} · зала {c.room}
       </span>
       <span className="opacity-80">{timeText}</span>
-      {c.cancelled && <span className="font-semibold">Отменено</span>}
-      {c.label && <span className="font-semibold">{LABELS[c.label]}</span>}
-      {!c.cancelled && !c.label && c.notes.length > 0 && <span className="truncate italic">{c.notes[0].text}</span>}
+      {c.cancelled ? (
+        <span className="font-semibold">Отменено</span>
+      ) : c.skipped ? (
+        <span className="font-semibold">Не ходя</span>
+      ) : (
+        c.label && <span className="font-semibold">{LABELS[c.label]}</span>
+      )}
+      {c.notes
+        .filter((n) => !/^(отменено|не ходя)/i.test(n.text))
+        .map((n) => (
+          <span key={n.id} className="truncate italic">
+            📝 {n.text}
+          </span>
+        ))}
     </div>
   );
 }
@@ -53,7 +63,7 @@ export function WeekCalendar({ classes, week, canEdit }: { classes: CalendarClas
         start: dateOf(c.day, c.startsAt),
         end: dateOf(c.day, c.endsAt),
         // On a plan page the colour says the label; on the week view it says the kind of class.
-        classNames: [c.label ? `label-${c.label}` : `class-${c.type}`, ...(c.cancelled ? ['class-cancelled'] : [])],
+        classNames: [c.label ? `label-${c.label}` : `class-${c.type}`, ...(c.cancelled ? ['class-cancelled'] : c.skipped ? ['class-skipped'] : [])],
         extendedProps: { entry: c },
       })),
     [classes],
@@ -88,17 +98,19 @@ export function WeekCalendar({ classes, week, canEdit }: { classes: CalendarClas
         {open && (
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className={open.cancelled ? 'line-through' : ''}>
+              <DialogTitle className={open.cancelled || open.skipped ? 'line-through' : ''}>
                 {open.course} · {TYPES[open.type]}
               </DialogTitle>
               <DialogDescription>
                 {DAYS[open.day]}, {open.startsAt}–{open.endsAt} · зала {open.room} · {week}. седмица
               </DialogDescription>
             </DialogHeader>
-            {open.label && (
+            {open.label ? (
               <p className="text-sm">
                 <span className="font-medium">{LABELS[open.label]}.</span> {open.reason}
               </p>
+            ) : (
+              open.reason && <p className="text-sm font-medium">{open.reason}</p>
             )}
             <p className="text-sm">
               Групи: {open.groups.map((g) => g.name).join(', ')}
@@ -107,15 +119,13 @@ export function WeekCalendar({ classes, week, canEdit }: { classes: CalendarClas
             {open.notes.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {open.notes.map((n) => (
-                  <Badge key={n.id} variant={open.cancelled ? 'destructive' : 'secondary'}>
-                    {n.text}
-                    {n.week === null && ' (всяка седмица)'}
-                  </Badge>
+                  <NoteBadge key={n.id} note={n} canEdit={canEdit} destructive={/^отменено/i.test(n.text)} />
                 ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Няма бележки.</p>
             )}
+            {canEdit && !open.skipped && <SkipButtons entryId={open.id} week={week} />}
             {canEdit && <NoteForm entryId={open.id} week={week} label={`${open.course}, ${DAYS[open.day]} ${open.startsAt}`} />}
           </DialogContent>
         )}

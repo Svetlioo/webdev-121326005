@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { DELETE as deleteEntryRoute } from '../../app/api/entries/[id]/route';
 import { POST as publishRoute } from '../../app/api/imports/[id]/publish/route';
 import { POST as noteRoute } from '../../app/api/notes/route';
+import { DELETE as deleteNoteRoute } from '../../app/api/notes/[id]/route';
 import { POST as importRoute } from '../../app/api/plans/[id]/imports/route';
 import { getActor } from '../../app/session';
 import * as entries from '../../src/data/entries';
@@ -122,6 +123,24 @@ describe('POST /api/notes', () => {
     const res = await noteRoute(new Request('http://localhost:3000/api/notes', { method: 'POST', body: 'null' }));
     expect(res.status).toBe(404);
     expect(await res.json()).toHaveProperty('error');
+  });
+});
+
+describe('DELETE /api/notes/:id', () => {
+  test('AC-24 the owner removes a note (204); a reader gets 403, nobody signed in 401, a missing note 404', async () => {
+    signedInAs(ana);
+    await noteRoute(json('POST', { entryId: lab, week: 3, text: 'Не ходя' }));
+    const id = String(db.notes[0].id);
+    const del = (noteId: string) => deleteNoteRoute(new Request(`http://localhost:3000/api/notes/${noteId}`, { method: 'DELETE' }), { params: Promise.resolve({ id: noteId }) });
+    signedInAs(boris);
+    expect((await del(id)).status).toBe(403);
+    signedInAs(null);
+    expect((await del(id)).status).toBe(401);
+    expect(db.notes).toHaveLength(1);
+    signedInAs(ana);
+    expect((await del('999')).status).toBe(404);
+    expect((await del(id)).status).toBe(204);
+    expect(db.notes).toHaveLength(0);
   });
 });
 

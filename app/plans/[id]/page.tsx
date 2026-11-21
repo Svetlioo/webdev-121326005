@@ -12,7 +12,7 @@ import { getPlan } from '@/src/services/plans';
 import { LAST_WEEK } from '@/src/services/schedule';
 import { LABELS } from '@/src/services/windows';
 import { WeekNav } from '../week-nav';
-import { AddSource, ChatInput, DeletePlanButton, RemoveButton, ShareDialog, SubjectsPanel } from '../plan-actions';
+import { ChatInput, DeletePlanButton, RemoveButton, ShareDialog, SubjectsPanel } from '../plan-actions';
 
 const DAYS = ['', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб'];
 const IMPORT_STATUS = { queued: 'в опашката', processing: 'моделът чете', ready: 'готово за преглед', failed: 'неуспешно', published: 'публикувано' };
@@ -46,6 +46,8 @@ export default async function PlanPage({ params, searchParams }: Props) {
   }
   const { plan, isOwner, canEdit, sources, messages, shares, subjects, groups: timetableGroups, classes } = view;
   const imports = canEdit ? await listImports(actor, plan.id) : [];
+  const instructions = sources.filter((s) => s.text);
+  const photos = sources.filter((s) => !s.text);
   const importing = imports.some((i) => i.status === 'queued' || i.status === 'processing');
   const thinking = plan.modelStatus === 'queued' || plan.modelStatus === 'processing';
   // Waiting for more than two minutes means no worker is running (the model lives on the laptop).
@@ -140,53 +142,26 @@ export default async function PlanPage({ params, searchParams }: Props) {
               </section>
             )}
 
-            <section aria-labelledby="sources-title" className="grid gap-3 rounded-lg border bg-background p-4">
-              <h2 id="sources-title" className="text-sm font-medium">
-                Лични инструкции
+            <section aria-labelledby="known-title" className="grid gap-3 rounded-lg border bg-background p-4">
+              <h2 id="known-title" className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
+                Какво знае AI за вас
+                {plan.windowsFrom === 'parser' ? <Badge variant="outline">Приблизително, без AI</Badge> : <Badge variant="secondary">от AI</Badge>}
               </h2>
-              {canEdit && <AddSource planId={plan.id} />}
-              {sources.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {canEdit ? 'Напишете работното си време, срещи, с коя група ходите на кой предмет, или качете снимка на график.' : 'Няма инструкции.'}
-                </p>
+              {instructions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{canEdit ? 'Още нищо. Пишете в чата: работно време, срещи, с коя група ходите на кой предмет.' : 'Нищо.'}</p>
               ) : (
-                <ul className="grid gap-2">
-                  {sources.map((s) => (
-                    <li key={s.id} className="flex items-start gap-2 rounded-md border p-2 text-sm">
-                      {s.text ? (
-                        <p className="min-w-0 flex-1 whitespace-pre-wrap">{s.text}</p>
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/api/plans/${plan.id}/sources/${s.id}`} alt="Качена снимка" className="max-h-40 min-w-0 flex-1 rounded object-contain" />
-                      )}
-                      {canEdit && <RemoveButton url={`/api/plans/${plan.id}/sources/${s.id}`} label="Премахни източника" />}
+                <ul className="grid gap-1.5">
+                  {instructions.map((s) => (
+                    <li key={s.id} className="flex items-start gap-2 rounded-md border px-2 py-1.5 text-sm">
+                      <p className="min-w-0 flex-1 whitespace-pre-wrap">{s.text}</p>
+                      {canEdit && <RemoveButton url={`/api/plans/${plan.id}/sources/${s.id}`} label={`Махни „${s.text}“`} />}
                     </li>
                   ))}
                 </ul>
               )}
-            </section>
-
-            <section aria-labelledby="windows-title" className="grid gap-2 rounded-lg border bg-background p-4">
-              <h2 id="windows-title" className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
-                Заети часове
-                {plan.windowsFrom === 'parser' ? (
-                  <Badge variant="outline">Приблизително, без AI</Badge>
-                ) : (
-                  <Badge variant="secondary">от AI</Badge>
-                )}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {plan.windowsFrom === 'model'
-                  ? 'Прочетени от AI модела от инструкциите, снимките и чата.'
-                  : modelOff
-                    ? 'AI моделът е изключен в момента. Часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“, докато моделът се включи.'
-                    : 'AI моделът още не е прочел инструкциите. Дотогава часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“.'}
-              </p>
-              {plan.modelStatus === 'failed' && (
-                <p className="text-xs text-muted-foreground">Моделът не успя да отговори, затова часовете са изчислени без него.</p>
-              )}
+              <h3 className="text-xs font-medium text-muted-foreground">Заети часове</h3>
               {plan.windows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Още няма заети часове.</p>
+                <p className="text-sm text-muted-foreground">Няма.</p>
               ) : (
                 <ul className="grid gap-1 text-sm">
                   {plan.windows.map((w, i) => (
@@ -195,6 +170,15 @@ export default async function PlanPage({ params, searchParams }: Props) {
                     </li>
                   ))}
                 </ul>
+              )}
+              {plan.windowsFrom === 'parser' && (
+                <p className="text-xs text-muted-foreground">
+                  {plan.modelStatus === 'failed'
+                    ? 'AI не успя да отговори, затова часовете са по прости правила. Пишете отново в чата.'
+                    : modelOff
+                      ? 'AI е изключен в момента. Дотогава часовете са по прости правила („от 9 до 16:30“, „след 17:00“, „в събота не мога“).'
+                      : 'Докато AI прочете, часовете са по прости правила.'}
+                </p>
               )}
             </section>
           </aside>
@@ -207,7 +191,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
               </h2>
               {messages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {canEdit ? 'Пишете свободно: моделът може да промени личните ви инструкции, предметите и заетите часове.' : 'Няма съобщения.'}
+                  {canEdit
+                    ? 'Кажете на AI кога сте заети и какво искате, напр. „Работя от 9:00 до 16:30 в делничните дни“ или „УП упражнение ще ходя с 221а“. Може и снимка на график. AI подрежда програмата и я записва вляво.'
+                    : 'Няма съобщения.'}
                 </p>
               ) : (
                 <ol className="grid max-h-72 gap-2 overflow-y-auto">
@@ -221,6 +207,23 @@ export default async function PlanPage({ params, searchParams }: Props) {
                   ))}
                   {thinking && <li className="justify-self-start rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{modelOff ? 'Моделът е изключен в момента; ще отговори, когато се включи.' : 'Моделът мисли…'}</li>}
                 </ol>
+              )}
+              {photos.length > 0 && (
+                <ul className="flex flex-wrap gap-2" aria-label="Качени снимки">
+                  {photos.map((p) => (
+                    <li key={p.id} className="relative">
+                      <a href={`/api/plans/${plan.id}/sources/${p.id}`} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`/api/plans/${plan.id}/sources/${p.id}`} alt="Качена снимка" className="size-20 rounded-md border object-cover" />
+                      </a>
+                      {canEdit && (
+                        <span className="absolute -top-2 -right-2 rounded-full bg-background shadow">
+                          <RemoveButton url={`/api/plans/${plan.id}/sources/${p.id}`} label="Махни снимката" />
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
               {canEdit && <ChatInput planId={plan.id} />}
               <p className="text-xs text-muted-foreground">
@@ -244,6 +247,12 @@ export default async function PlanPage({ params, searchParams }: Props) {
                   <WeekNav planId={plan.id} week={week} last={LAST_WEEK} />
                 </div>
               </div>
+              {thinking && (
+                <p role="status" className="flex items-center gap-2 border-b bg-muted/60 px-4 py-2 text-sm">
+                  <span className="size-2 animate-pulse rounded-full bg-primary" />
+                  {modelOff ? 'AI е изключен в момента; програмата ще се обнови, когато се включи.' : 'AI обновява програмата… календарът ще се смени сам.'}
+                </p>
+              )}
               {classes.length === 0 ? (
                 <p className="p-4 text-sm text-muted-foreground">
                   {timetableGroups.length === 0
@@ -265,8 +274,8 @@ export default async function PlanPage({ params, searchParams }: Props) {
                           <p className="font-mono text-xs tabular-nums text-muted-foreground">
                             {DAYS[c.day]} {c.startsAt}–{c.endsAt} · зала {c.room}
                           </p>
-                          <p className={c.cancelled ? 'line-through' : ''}>
-                            <span className="font-medium">{c.course}</span> · {c.label ? LABELS[c.label] : 'Отменено'}
+                          <p className={c.cancelled || c.skipped ? 'line-through' : ''}>
+                            <span className="font-medium">{c.course}</span> · {c.label ? LABELS[c.label] : c.cancelled ? 'Отменено' : 'Не ходя'}
                           </p>
                           <p className="text-xs text-muted-foreground">{c.reason}</p>
                         </div>

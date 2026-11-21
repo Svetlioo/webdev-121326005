@@ -13,6 +13,16 @@ export async function listNotes(planId: number): Promise<Note[]> {
   return rows;
 }
 
+/** The class a note belongs to, or null. */
+export async function findNoteEntry(id: number): Promise<number | null> {
+  const { rows } = await db().query('SELECT entry_id::int AS "entryId" FROM notes WHERE id = $1', [id]);
+  return rows[0]?.entryId ?? null;
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  await db().query('DELETE FROM notes WHERE id = $1', [id]);
+}
+
 export async function insertNote(entryId: number, week: number | null, text: string, userId: string): Promise<Note> {
   const { rows } = await db().query(
     `INSERT INTO notes (entry_id, week, text, created_by) VALUES ($1, $2, $3, $4)

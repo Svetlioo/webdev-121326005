@@ -148,6 +148,23 @@ describe('my plan', () => {
     await addSource(ana, id, { text: WORK }); // instructions are not photos
   });
 
+  test('removing an instruction says so in the chat, so the model does not bring it back; the parser also reads the chat', async () => {
+    const id = await newPlan();
+    await addSource(ana, id, { text: 'В събота не мога' });
+    await removeSource(ana, id, 1);
+    await sendMessage(ana, id, 'Във вторник работя до 12');
+    const view = await getPlan(ana, id, 3);
+    expect(view.messages.map((m) => m.content)).toEqual(['Махнах „В събота не мога“', 'Във вторник работя до 12']);
+    expect(view.plan.windows).toEqual([{ day: 2, from: '07:30', to: '12:00', what: 'работа' }]);
+  });
+
+  test('a skipped class has no label', async () => {
+    const id = await createPlan(ana, { name: 'С разписание', myGroup: '222', fromSample: true });
+    const lab = db.entries.find((e) => e.planId === id && e.course === 'УП' && e.type === 'lab' && e.day === 1)!.id;
+    await addNote(ana, { entryId: lab, week: null, text: 'Не ходя' });
+    expect((await getPlan(ana, id, 3)).classes.find((c) => c.id === lab)).toMatchObject({ skipped: true, label: null, reason: 'Не ходите на това занятие.' });
+  });
+
   test('a photo is a source; it can be read back and removed', async () => {
     const id = await newPlan();
     await addSource(ana, id, { image: Buffer.from('png'), imageType: 'image/png' });

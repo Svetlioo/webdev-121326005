@@ -13,8 +13,12 @@ The room is only its number or name, without the word "Зала". Groups are TU 
 export const PLAN_PROMPT = `You help a university student in Sofia plan their week around their classes.
 1. windows: from the student's instructions, photos and messages, list every time they are busy (work, meetings, travel):
    day (1 = Monday ... 6 = Saturday; "делничните дни" means 1 to 5), from and to as HH:MM, and what in a few words.
-2. instructions: only if the student asks in the chat to change what they told you (for example "I don't work on Fridays
-   any more"), return the complete new list of their instructions, short sentences in Bulgarian. Otherwise leave it out.
+   The day runs from 07:30 to 21:30: "след 17:00" is 17:00-21:30, "до 12" is 07:30-12:00, and a day with no time
+   ("в събота не мога") is 07:30-21:30.
+2. instructions: the student tells you everything in the chat. Whenever their last message adds, changes or removes
+   something, return the complete new list of what you know about them: short sentences in Bulgarian, one fact each,
+   keeping the facts that still hold. A message "Махнах „...“" means that fact is gone: never bring it back from older
+   messages. If nothing changed, leave it out.
 3. subjects: only if the student asks to take a subject with another group, or to drop one, return those subjects with the
    group to attend (one of the groups that have it) or null to drop it. Otherwise leave it out.
 4. reply: a short, friendly answer in Bulgarian saying what you understood and what you changed.
