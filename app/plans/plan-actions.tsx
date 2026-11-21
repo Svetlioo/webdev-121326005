@@ -224,7 +224,9 @@ export function ShareDialog({ planId, shares }: { planId: number; shares: { user
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Сподели програмата</DialogTitle>
-          <DialogDescription>Хората, с които я споделите, могат само да я четат.</DialogDescription>
+          <DialogDescription>
+            Хората, с които я споделите, могат само да я четат. Ако имейлът има профил, човекът се появява в списъка долу и вижда програмата в „Споделени с мен“.
+          </DialogDescription>
         </DialogHeader>
         <form
           className="flex gap-2"

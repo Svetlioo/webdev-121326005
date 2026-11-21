@@ -182,9 +182,9 @@ export async function sendMessage(actor: Actor | null, id: number, text: string)
 export async function sharePlan(actor: Actor | null, id: number, email: string): Promise<void> {
   const { plan } = await editablePlan(actor, id);
   const userId = await findUserIdByEmail(email);
-  if (!userId) throw new AppError(404, 'Няма потребител с този имейл.');
   if (userId === plan.ownerId) throw new AppError(400, 'Програмата вече е на този потребител.');
-  await addShare(id, userId);
+  // An unknown email gets the same answer as a known one, so nobody can test who is registered.
+  if (userId) await addShare(id, userId);
 }
 
 export async function unsharePlan(actor: Actor | null, id: number, userId: string): Promise<void> {
