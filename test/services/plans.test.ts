@@ -240,9 +240,11 @@ describe('sharing and access', () => {
     expect(db.plans).toHaveLength(0);
   });
 
-  test('sharing with an unknown email gives 404, and with the owner 400', async () => {
+  test('R3 sharing with an unknown email answers exactly like a known one (no way to probe who is registered) and shares nothing', async () => {
     const id = await newPlan();
-    await expect(sharePlan(ana, id, 'nobody@test.bg')).rejects.toMatchObject({ status: 404 });
+    await expect(sharePlan(ana, id, 'nobody@test.bg')).resolves.toBeUndefined();
+    await expect(sharePlan(ana, id, 'boris@test.bg')).resolves.toBeUndefined();
+    expect(db.shares).toEqual([{ planId: id, userId: 'boris' }]);
     await expect(sharePlan(ana, id, 'ana@test.bg')).rejects.toMatchObject({ status: 400 });
   });
 
