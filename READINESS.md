@@ -24,7 +24,7 @@ What is true about the deployed app, how I checked each claim, and what is still
 
 ## What happens when things fail
 
-- Database down: `/health` answers `503 {"status":"error","db":"down"}` and pages show "Програмата не може да се зареди" with a retry button. How I checked: I stopped the database container and opened a plan and `/health` (screenshot `docs/ui/error.png`).
+- Database down: `/health` answers `503 {"status":"error","db":"down"}` and the plan pages show "Програмата не може да се зареди" (the admin page "Страницата не може да се зареди") with a retry button. How I checked: I stopped the database container and opened a plan and `/health` (screenshot `docs/ui/error.png`).
 - Model down or laptop off: the site keeps working; busy times are computed by the plain parser ("Приблизително, без AI"), imports and chat wait, and after two minutes the page says "Моделът е изключен в момента". How I checked: no worker running, sent a chat message and waited.
 - Model too slow: after `MODEL_TIMEOUT_MS` the import is `failed` with "Моделът не отговори навреме…" and a retry. How I checked: test `AC-4` and a real run with `qwen3-vl:4b` that timed out at 120 s.
 - A missing variable: the server does not start and names it (above).

@@ -42,6 +42,7 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Changed in review: the review agents found a worker overwriting newer changes (now saved only while `processing`), a page cut that dropped the whole timetable when a menu tab said "Списъчен състав", an admin MCP token reaching every plan (now refused), a missing keyboard order in the new-plan form, and stale spec rows
 - Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s
 - Changed by hand: (fill in)
+- A false claim the agent made about the deployment: (fill in after the deploy, or "none found")
 
 ## What the agent did that I did not ask for
 - (fill in after reading `git diff --stat 0a2a0a9 HEAD`) e.g. a `test/fakes.ts` in-memory data layer, the `MODEL_THINK` setting, `instrumentation.ts`, standalone Next output in the Dockerfile, the touch-target CSS

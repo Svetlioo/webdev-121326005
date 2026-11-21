@@ -44,7 +44,7 @@ A screen that only handles "it worked" is a screen that lies to the user on the 
 - [x] **The page has a correct `<title>` and `lang`.**
   - how I checked: `curl -s localhost:3000/signin` shows `<html lang="bg">` and `<title>Седмично разписание · ТУ София</title>`.
 - [x] **Touch targets are at least 44 pixels.**
-  - how I checked: on a touch device (Playwright `hasTouch`, 380 px) no button, select, input or textarea is under 44 px tall; `app/globals.css` sets that minimum for `pointer: coarse`.
+  - how I checked: on a touch device (Playwright `hasTouch`, 380 px) no button, select, text field or textarea is under 44 px tall; `app/globals.css` sets that minimum for `pointer: coarse`. Checkboxes are inside their `<label>`, so the whole label row is the target.
 
 ## The model feature
 
