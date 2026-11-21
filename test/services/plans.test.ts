@@ -140,6 +140,14 @@ describe('my plan', () => {
     expect((await getPlan(ana, id, 4)).classes.find((c) => c.id === lab)).toMatchObject({ label: null, cancelled: true });
   });
 
+  test('R2 a plan keeps at most 5 photos', async () => {
+    const id = await newPlan();
+    for (let i = 0; i < 5; i++) await addSource(ana, id, { image: Buffer.from('png'), imageType: 'image/png' });
+    await expect(addSource(ana, id, { image: Buffer.from('png'), imageType: 'image/png' })).rejects.toMatchObject({ status: 400 });
+    expect(db.sources).toHaveLength(5);
+    await addSource(ana, id, { text: WORK }); // instructions are not photos
+  });
+
   test('a photo is a source; it can be read back and removed', async () => {
     const id = await newPlan();
     await addSource(ana, id, { image: Buffer.from('png'), imageType: 'image/png' });

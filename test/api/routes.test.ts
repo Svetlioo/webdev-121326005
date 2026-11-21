@@ -74,6 +74,19 @@ describe('POST /api/plans/:id/imports', () => {
   });
 });
 
+describe('R2 upload size', () => {
+  test('R2 a body over 11 MB is refused with 413 before it is read, for imports and for sources', async () => {
+    signedInAs(ana);
+    const big = (url: string) => new Request(url, { method: 'POST', headers: { 'content-length': String(12 * 1024 * 1024) }, body: 'x' });
+    const imp = await importRoute(big('http://localhost:3000/api/x'), params({ id: String(planId) }));
+    expect(imp.status).toBe(413);
+    expect(await imp.json()).toHaveProperty('error');
+    const { POST: sourceRoute } = await import('../../app/api/plans/[id]/sources/route');
+    expect((await sourceRoute(big('http://localhost:3000/api/x'), params({ id: String(planId) }))).status).toBe(413);
+    expect(insertImport).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/imports/:id/publish', () => {
   test('AC-5 publishing a draft with a class outside the 14 periods is refused with 400 and nothing is published', async () => {
     signedInAs(ana);

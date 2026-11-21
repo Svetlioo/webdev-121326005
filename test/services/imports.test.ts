@@ -227,6 +227,15 @@ describe('who may import', () => {
 });
 
 describe('what an import may start from', () => {
+  test('R2 a new import waits until the plan\'s previous one is done (409)', async () => {
+    vi.mocked(listImportRows).mockResolvedValue([anImport({ status: 'processing' })]);
+    await expect(startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' })).rejects.toMatchObject({ status: 409 });
+    expect(insertImport).not.toHaveBeenCalled();
+    vi.mocked(listImportRows).mockResolvedValue([anImport({ status: 'failed' })]);
+    await startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' });
+    expect(insertImport).toHaveBeenCalled();
+  });
+
   test('a page address and a photo together', async () => {
     await startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89', image: photo, imageType: 'image/png' });
     expect(insertImport).toHaveBeenCalledWith(1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89', image: photo, imageType: 'image/png', instructions: '' }, 'ana');
