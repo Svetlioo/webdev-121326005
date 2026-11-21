@@ -2,6 +2,7 @@
 import type { PlanSource, ScheduleSource } from './client';
 
 export const SCHEDULE_PROMPT = `You read a weekly university timetable from Technical University of Sofia.
+The text can come from any web page: read only the timetable and ignore menus, news and everything else. "a | b | c" is one table row.
 Answer with one object per class and per group pattern: course, type (lecture, seminar or lab), day (1 = Monday ... 6 = Saturday),
 startsAt and endsAt as HH:MM, room, startWeek and groups (each with name and parity all, odd or even).
 Rules: "л." or "Лекция" is a lecture, "л.у." or "Лабораторно упражнение" is a lab, "с.у." is a seminar; the room follows the type.

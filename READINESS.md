@@ -47,6 +47,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 - Every service function checks the actor itself (deny by default): a reader who tries to change a plan gets 403, for a stranger the plan does not exist (404, so ids reveal nothing), nobody signed in 401. How I checked: tests `AC-10`, `AC-18`, `AC-19`, `AC-20`, `AC-21` (service and API) and curl against the running app.
 - No SQL outside `src/data/`, every query parameterised (`$1`); the MCP server calls services only and refuses an admin token.
 - Uploaded photos: only PNG/JPEG/WebP, at most 10 MB, served with their type and `nosniff`.
+- Timetable links (any public page): the worker refuses addresses in its own machine or network (localhost, private and link-local ranges, `.local` names, and names whose DNS points there), checks every redirect again (at most 3), and reads at most 2 MB of HTML or text in 20 seconds. How I checked: `test/services/imports.test.ts` (R1 tests) and real fetches of cs.fcst.bg, tu-sofia.bg (http → https redirect), Wikipedia and example.com; localhost, 127.0.0.1, 192.168.1.1, 169.254.169.254, [::1] and an image URL were refused.
 - No secrets in the repository: `.env` ignored, `.env.example` has placeholders only.
 
 ## Known gaps, ranked by risk
@@ -56,6 +57,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 3. Data-layer tests use a fake pool, so the SQL is checked by hand and by the browser runs, not by automated tests against PostgreSQL.
 4. The Google sign-in round trip is not tested automatically (only up to the redirect with state and PKCE).
 5. Publishing a new import replaces a plan's classes and their notes; there are no versions.
+6. A link can point anywhere public, so the page's text may hold names the cleaner does not recognise (it drops a student list section, e-mails, phones and faculty numbers, not every name). With the laptop's model that text stays on the laptop; with Gemini it goes to Google. The model's answer cannot carry names (its schema has none), and the student reviews the draft.
 
 ## The model feature in production
 

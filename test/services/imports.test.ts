@@ -13,6 +13,9 @@ import {
 import { ModelOutputError, ModelTimeoutError, ModelUnavailableError, type ModelClient } from '../../src/model/client';
 import {
   fetchPage,
+  isPrivateAddress,
+  isPublicUrl,
+  lookupAll,
   getImport,
   getImportImage,
   listImports,
@@ -270,7 +273,7 @@ describe('what an import may start from', () => {
     ['an address that is not http', { sourceUrl: 'file:///etc/passwd' }],
     ['R1 an address in my home network', { sourceUrl: 'http://192.168.1.1/' }],
     ['R1 the laptop\'s own model server', { sourceUrl: 'http://127.0.0.1:11434/api/tags' }],
-    ['R1 a site that is not TU Sofia\'s', { sourceUrl: 'https://example.com/schedule' }],
+    ['R1 the cloud metadata address', { sourceUrl: 'http://169.254.169.254/latest/meta-data' }],
     ['R1 an address that only looks like one', { sourceUrl: 'http://[not-a-host' }],
     ['a photo that is not an image', { image: photo, imageType: 'application/pdf' }],
     ['a photo with no type', { image: photo }],
@@ -282,39 +285,82 @@ describe('what an import may start from', () => {
 });
 
 describe('reading a page', () => {
-  test('drops scripts, styles, markup and everything from "Списъчен състав" on', () => {
-    expect(pageText('<style>x{}</style><script>alert(1)</script><td>КЗ&nbsp;л.</td>\n<p>Списъчен състав</p> Иван')).toBe(' КЗ л. ');
+  test('any page: code, styles, menus, headers and footers go; a table keeps its rows and cells', () => {
+    const html = `<head><title>x</title></head><!-- note --><header>Лого</header><nav><a>Меню</a></nav>
+      <script>alert(1)</script><style>td{}</style><noscript>JS</noscript>
+      <table><tr><th>Ден</th><th>Час</th><th>Предмет</th></tr><tr><td>Понеделник</td><td>07:30&nbsp;– 10:15</td><td>ОИТ&#8209;л. &#x2116;1</td></tr></table>
+      <p>Зала&nbsp;1216 &amp; &bdquo;Java&ldquo; &unknown;</p><br><footer>© ТУ</footer>`;
+    expect(pageText(html)).toBe('Ден | Час | Предмет\nПонеделник | 07:30 – 10:15 | ОИТ‑л. №1\nЗала 1216 & "Java" &unknown;');
   });
 
-  test('a "Списъчен състав" tab in the menu before the timetable does not cut the timetable; the student section does', () => {
-    const html = `<nav><a href="#classes">Разписание</a> <a href="#ksi-students">Списъчен състав</a></nav>
-      <section id="ksi-classes">Понеделник 07:30 – 10:15 ОИТ Лекция Зала 1216</section>
-      <section id="ksi-students"><h2>Списък</h2><p>Иван Иванов</p></section>`;
-    const text = pageText(html);
-    expect(text).toContain('ОИТ Лекция Зала 1216');
-    expect(text).not.toContain('Иван');
+  test('personal data goes: a student section (by id or heading), e-mail addresses, phone numbers and faculty numbers', () => {
+    expect(pageText('<p>ОИТ</p><section id="ksi-students"><p>Иван Иванов</p></section>')).toBe('ОИТ');
+    expect(pageText('<p>ОИТ</p><details><summary><span>Списъчен състав</span></summary>Иван</details>')).toBe('ОИТ');
+    expect(pageText('<p>ОИТ</p><h2>Списък на студентите</h2><p>Мария</p>')).toBe('ОИТ');
+    expect(pageText('<p>Пишете на ivan.petrov@tu-sofia.bg или +359 88 123 4567, 0888 123 456, фак. № 121326005</p>')).toBe('Пишете на или , , фак. №');
+    // a menu link to the student list does not cut the timetable that follows it
+    expect(pageText('<nav><a href="#ksi-students">Списъчен състав</a></nav><p>ОИТ Лекция Зала 1216</p>')).toBe('ОИТ Лекция Зала 1216');
   });
 
-  test('a page without student lists is kept whole', () => {
-    expect(pageText('<p>ОИТ</p>')).toBe(' ОИТ ');
+  test('a page without student lists is kept whole, up to 50,000 characters', () => {
+    expect(pageText('<p>ОИТ</p>')).toBe('ОИТ');
+    expect(pageText(`<p>${'а'.repeat(60_000)}</p>`)).toHaveLength(50_000);
   });
 
-  test('R1 only TU Sofia pages are imported, never through a redirect, and a huge page is cut off', async () => {
-    await startImport(ana, 1, { sourceUrl: 'https://tu-sofia.bg/schedule' });
+  test('R1 any public page may be imported; an address in this machine or its network may not', async () => {
     await startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' });
+    await startImport(ana, 1, { sourceUrl: 'https://example.com/schedule.html' });
     expect(insertImport).toHaveBeenCalledTimes(2);
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('x'.repeat(3_000_000)));
-    expect((await fetchPage('https://cs.fcst.bg')).length).toBe(2_000_000);
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'error' });
+    for (const url of ['http://localhost:11434/api/tags', 'http://127.0.0.1:3000', 'http://192.168.1.1', 'http://[::1]/', 'http://router', 'http://nas.local'])
+      await expect(startImport(ana, 1, { sourceUrl: url })).rejects.toMatchObject({ status: 400 });
+    expect(insertImport).toHaveBeenCalledTimes(2);
+  });
+
+  test('which addresses are private', () => {
+    for (const ip of ['0.0.0.0', '10.1.2.3', '127.0.0.1', '224.0.0.1', '100.64.0.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '192.168.0.1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::7f00:1', '::ffff:a00:1', '::', '::1', 'fc00::1', 'fd12::1', 'fe80::1'])
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    for (const ip of ['8.8.8.8', '::ffff:808:808', '100.63.0.1', '100.128.0.1', '169.253.0.1', '172.15.0.1', '172.32.0.1', '192.169.0.1', '2a00:1450::1'])
+      expect(isPrivateAddress(ip), ip).toBe(false);
+    expect(isPublicUrl('https://8.8.8.8/x')).toBe(true);
+    for (const url of ['http://[::ffff:127.0.0.1]/', 'http://[::127.0.0.1]/', 'http://2130706433/', 'http://0x7f.1/', 'http://127.1/'])
+      expect(isPublicUrl(url), url).toBe(false);
+    expect(isPublicUrl('ftp://example.com')).toBe(false);
+    expect(isPublicUrl('http://a.localhost')).toBe(false);
+    expect(isPublicUrl('not a url')).toBe(false);
+  });
+
+  test('fetchPage follows at most 3 redirects, checks every host, and reads only web pages up to 2 MB', async () => {
+    const publicDns = async () => ['93.184.216.34'];
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const redirect = (to: string) => new Response(null, { status: 302, headers: { location: to } });
+
+    fetchMock.mockResolvedValueOnce(redirect('/page')).mockResolvedValueOnce(new Response('<p>ok</p>', { headers: { 'content-type': 'text/html' } }));
+    expect(await fetchPage('http://example.com', publicDns)).toBe('<p>ok</p>');
+    expect(fetchMock.mock.calls[1][0]).toBe('http://example.com/page');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+
+    fetchMock.mockResolvedValueOnce(redirect('http://127.0.0.1:11434/api/tags'));
+    await expect(fetchPage('http://example.com', publicDns)).rejects.toThrow('not a public address');
+    await expect(fetchPage('http://evil.example', async () => ['10.0.0.5'])).rejects.toThrow('private network');
+
+    fetchMock.mockResolvedValue(redirect('http://example.com/again'));
+    await expect(fetchPage('http://example.com', publicDns)).rejects.toThrow('too many redirects');
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 304 }));
+    await expect(fetchPage('https://8.8.8.8', publicDns)).rejects.toThrow('304');
+    fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
+    await expect(fetchPage('http://example.com', publicDns)).rejects.toThrow('404');
+    fetchMock.mockResolvedValueOnce(new Response('jpeg', { headers: { 'content-type': 'image/jpeg' } }));
+    await expect(fetchPage('http://example.com', publicDns)).rejects.toThrow('not a web page');
+
+    fetchMock.mockResolvedValueOnce(new Response(new TextEncoder().encode('x'.repeat(3_000_000))));
+    expect(await fetchPage('http://example.com', publicDns)).toHaveLength(2_000_000);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    expect(await fetchPage('http://example.com', publicDns)).toBe('');
     fetchMock.mockRestore();
   });
 
-  test('fetchPage returns the page, or fails on an error status', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch');
-    fetchMock.mockResolvedValueOnce(new Response('<p>ok</p>'));
-    expect(await fetchPage('https://cs.fcst.bg')).toBe('<p>ok</p>');
-    fetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
-    await expect(fetchPage('https://cs.fcst.bg')).rejects.toThrow('404');
-    fetchMock.mockRestore();
+  test('host names are looked up in DNS', async () => {
+    expect(await lookupAll('localhost')).toContain('127.0.0.1');
   });
 });

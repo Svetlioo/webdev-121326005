@@ -1,3 +1,5 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import type { Actor } from '../auth';
 import {
   claimNextImport,
@@ -80,7 +82,7 @@ export async function startImport(actor: Actor | null, planId: number, input: St
   const image = input.image?.length ? input.image : null;
   if (!url && !image) throw new AppError(400, 'Посочете адрес на страница, снимка или и двете.');
   if (url && !/^https?:\/\/\S+$/.test(url)) throw new AppError(400, 'Адресът трябва да започва с http:// или https://.');
-  if (url && !isTuSofiaPage(url)) throw new AppError(400, 'Може да се внася само страница на ТУ София (tu-sofia.bg или fcst.bg).');
+  if (url && !isPublicUrl(url)) throw new AppError(400, 'Адресът трябва да е публична страница в интернет.');
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
   if ((await listImportRows(planId)).some((i) => i.status === 'queued' || i.status === 'processing')) {
@@ -148,57 +150,122 @@ export async function retryImport(actor: Actor | null, id: number): Promise<void
   await updateImport(id, 'queued');
 }
 
-/**
- * The text of a schedule page, without markup and without the student lists ("Списъчен състав").
- * Menus go first, because a tab called "Списъчен състав" can come before the timetable; then the
- * page is cut where the student list starts: its section (an id with "student"), or its heading.
- */
-export function pageText(html: string): string {
-  let page = html.replace(/<(script|style|nav)\b[\s\S]*?<\/\1>/gi, ' ');
-  const section = page.search(/<[^>]+\bid="[^"]*student/i);
-  if (section !== -1) page = page.slice(0, section);
-  const text = page
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&[bl]dquo;/g, '"')
-    .replace(/&[nm]dash;/g, '–')
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ');
-  const lists = text.search(/списъчен състав/i);
-  return (lists === -1 ? text : text.slice(0, lists)).slice(0, 30_000);
-}
+/** Section ids and headings that start a list of students: everything from there on is dropped. */
+const STUDENT_SECTION = /<[^>]+\bid="[^"]*(?:students?|studenti|spisak)"|<(?:h[1-6]|summary|caption|legend)\b[^>]*>(?:\s|<[^>]+>)*(?:списъчен състав|списък на студент|student list)/i;
+const ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", bdquo: '"', ldquo: '"', rdquo: '"', laquo: '"', raquo: '"', ndash: '–', mdash: '–', middot: '·', hellip: '…' };
+const MAX_TEXT = 50_000;
 
 /**
- * The worker fetches the page on the owner's laptop, so the address must be a TU Sofia site: never an
- * address in the home network or the laptop itself (such as the model server on localhost).
+ * The readable text of any web page, for the model: it does not depend on how a particular site is
+ * built. Code, styles, menus, headers and footers go; table cells become "a | b" and table rows,
+ * paragraphs and list items become lines, so a timetable keeps its shape. Personal data the model does
+ * not need goes too: a student list section (by its id or heading), e-mail addresses, phone numbers and
+ * faculty numbers.
  */
-function isTuSofiaPage(url: string): boolean {
+export function pageText(html: string): string {
+  let page = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style|noscript|template|svg|head|nav|header|footer|iframe|form)\b[\s\S]*?<\/\1>/gi, ' ');
+  const students = page.search(STUDENT_SECTION);
+  if (students !== -1) page = page.slice(0, students);
+  const text = page
+    .replace(/<\/t[dh]>/gi, ' | ')
+    .replace(/<br\s*\/?>|<\/(?:tr|p|div|li|dt|dd|h[1-6]|table|section|article|summary|caption)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (all, name: string) => ENTITIES[name.toLowerCase()] ?? all)
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, ' ')
+    .replace(/(?:\+359|\b0)[\s/-]?\d(?:[\s/-]?\d){7,9}\b/g, ' ')
+    .replace(/\b\d{6,}\b/g, ' ');
+  return text
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').replace(/^[\s|]+|[\s|]+$/g, '').replace(/(?:\s*\|\s*){2,}/g, ' | '))
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, MAX_TEXT);
+}
+
+const MAX_PAGE_BYTES = 2_000_000;
+const MAX_REDIRECTS = 3;
+
+/** An address in this machine or its network: the worker runs on the owner's laptop (with the model on
+ *  localhost) and on the website's server, so a page address must never reach either. */
+export function isPrivateAddress(ip: string): boolean {
+  // An IPv4 address written as IPv6 ("::ffff:127.0.0.1", which URL turns into "::ffff:7f00:1"): check the IPv4 inside.
+  const hex = /^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ip);
+  const v4 = hex
+    ? [parseInt(hex[1], 16) >> 8, parseInt(hex[1], 16) & 255, parseInt(hex[2], 16) >> 8, parseInt(hex[2], 16) & 255].join('.')
+    : ip.replace(/^::(?:ffff:)?(?=\d+\.)/i, '');
+  if (isIP(v4) === 4) {
+    const [a, b] = v4.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  }
+  const v6 = ip.toLowerCase();
+  return v6 === '::' || v6 === '::1' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
+}
+
+/** A public http(s) address by its shape; the worker also checks where its name points before it connects. */
+export function isPublicUrl(url: string): boolean {
   try {
-    const { hostname } = new URL(url);
-    return ['tu-sofia.bg', 'fcst.bg'].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+    const { protocol, hostname } = new URL(url);
+    const host = hostname.replace(/^\[|\]$/g, '');
+    if (protocol !== 'http:' && protocol !== 'https:') return false;
+    if (host === 'localhost' || /\.(?:localhost|local|internal|lan|home)$/i.test(host) || !host.includes('.') && !isIP(host)) return false;
+    return !isIP(host) || !isPrivateAddress(host);
   } catch {
     return false;
   }
 }
 
-const MAX_PAGE_CHARS = 2_000_000;
-
-/** The schedule page could not be read. */
+/** The page could not be read. */
 class PageError extends Error {}
 
-/** Reads a page with a time limit. Replaced in tests. */
-export async function fetchPage(url: string): Promise<string> {
-  // No redirects: a TU Sofia address must not lead the worker on to another host.
-  const response = await fetch(url, { signal: AbortSignal.timeout(20_000), redirect: 'error' });
-  if (!response.ok) throw new Error(`page answered ${response.status}`);
-  return (await response.text()).slice(0, MAX_PAGE_CHARS);
+/** Reads a public page: at most 3 redirects, each checked again; 20 seconds; at most 2 MB; HTML or text only. Replaced in tests. */
+export async function fetchPage(url: string, resolve: (host: string) => Promise<string[]> = lookupAll): Promise<string> {
+  let address = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (!isPublicUrl(address)) throw new Error('not a public address');
+    const host = new URL(address).hostname.replace(/^\[|\]$/g, '');
+    if (!isIP(host) && (await resolve(host)).some(isPrivateAddress)) throw new Error('the name points into a private network');
+    const response = await fetch(address, { signal: AbortSignal.timeout(20_000), redirect: 'manual' });
+    const next = response.headers.get('location');
+    if (response.status >= 300 && response.status < 400 && next) {
+      address = new URL(next, address).toString();
+      continue;
+    }
+    if (!response.ok) throw new Error(`page answered ${response.status}`);
+    const type = response.headers.get('content-type') ?? '';
+    if (type && !/text\/html|text\/plain|application\/xhtml/i.test(type)) throw new Error(`not a web page (${type})`);
+    return readAtMost(response, MAX_PAGE_BYTES);
+  }
+  throw new Error('too many redirects');
+}
+
+/** Every address a host name points to. */
+export const lookupAll = async (host: string) => (await lookup(host, { all: true })).map((a) => a.address);
+
+/** The body as text, stopping after max bytes, so a huge page is never held in memory. */
+async function readAtMost(response: Response, max: number): Promise<string> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (size < max) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    size += value.length;
+  }
+  await reader.cancel();
+  return new TextDecoder().decode(Buffer.concat(chunks).subarray(0, max));
 }
 
 /** Why an import failed, for the publisher. */
 function failureMessage(error: unknown): string {
   if (error instanceof ModelTimeoutError) return TIMEOUT_MESSAGE;
   if (error instanceof ModelOutputError) return 'Моделът върна неразбираем отговор. Опитайте отново или въведете занятията ръчно.';
-  if (error instanceof PageError) return 'Страницата не може да бъде изтеглена. Проверете адреса.';
+  if (error instanceof PageError) return 'Страницата не може да бъде изтеглена (не отговаря, не е уеб страница или е във вътрешна мрежа). Проверете адреса или качете снимка.';
   return 'Моделът не е достъпен. Опитайте отново по-късно или въведете занятията ръчно.';
 }
 

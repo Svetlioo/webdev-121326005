@@ -36,7 +36,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Services throw `AppError(status, message)` from `src/services/errors.ts`. Route handlers turn it into that status with `errorResponse` from `app/session.ts`.
 - Errors reach the client as JSON `{ "error": "..." }`, a sentence in Bulgarian that a person can read. Never a stack trace or a raw database error.
 - The UI is in Bulgarian. Code, identifiers and comments are in English.
-- Never import or store the student lists ("Списъчен състав") from faculty pages, and never put personal data in seed data or tests.
+- Never import or store student lists ("Списъчен състав") or other personal data from web pages (`pageText` drops them before the model), and never put personal data in seed data or tests.
 
 ## Layers
 <!-- Fill in the file or folder for each layer. -->
