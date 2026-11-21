@@ -139,6 +139,17 @@ function send(reply: object) {
   process.stdout.write(JSON.stringify(reply) + '\n');
 }
 
+/** What the log says about one incoming line: the method and the tool, never the arguments,
+ *  so note texts and other personal data never reach the terminal. */
+export function logLine(line: string): string {
+  try {
+    const msg = JSON.parse(line);
+    return ['got:', msg.method, msg.params?.name].filter(Boolean).join(' ');
+  } catch {
+    return 'got: a line that is not JSON';
+  }
+}
+
 /** The user the server acts for: MCP_TOKEN's user, who must be a student. An admin's token is refused,
  *  so the MCP server can never reach every plan. */
 export async function mcpActor(token: string | undefined, lookUp = actorFromToken): Promise<Actor | null> {
@@ -153,7 +164,7 @@ export async function mcpActor(token: string | undefined, lookUp = actorFromToke
 if (import.meta.filename === process.argv[1]) {
   const lines = readline.createInterface({ input: process.stdin });
   lines.on('line', async (line) => {
-    console.error('got: ' + line);
+    console.error(logLine(line));
     let msg: Message;
     try {
       msg = JSON.parse(line);
