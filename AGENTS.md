@@ -57,8 +57,8 @@ that talks to the database directly is a second, unguarded way into your data: n
 
 ## The model feature
 <!-- Provider, env var, and the call site. -->
-- The provider is named in exactly one file: `src/model/ollama.ts`. Everything else depends on the `ModelClient` interface in `src/model/client.ts`.
-- The model is local (Ollama, `qwen3.8:27b-mlx`), so there is no key. It is configured by `OLLAMA_URL`, `MODEL_NAME` and `MODEL_TIMEOUT_MS`; an empty `OLLAMA_URL` (as on Render) means "no model" and goes straight to the fallback.
+- The providers are named in two files only: `src/model/ollama.ts` (local, on the laptop) and `src/model/gemini.ts` (the hosted backup). Everything else depends on the `ModelClient` interface in `src/model/client.ts`; the prompts are in `src/model/prompts.ts`.
+- The model is local (Ollama, `qwen3.8:27b-mlx`, no key), configured by `OLLAMA_URL`, `MODEL_NAME`, `MODEL_TIMEOUT_MS` and `MODEL_THINK`; the laptop's worker (`npm run worker`) uses it. With `GEMINI_API_KEY` set (on Render), the website runs a backup worker with Gemini (`GEMINI_MODEL`, default `gemini-2.5-flash`) that answers only jobs that waited 30 s. Sending data to Gemini is the user-approved exception to "no third-party model".
 - Every call has a timeout and a deterministic fallback, so the app still works when the provider is down or rate-limited.
 - The model's output is re-checked against real data before anything is saved or shown.
 - Model calls (imports and plans) run only in the worker (`src/worker/`), never inside an HTTP request.

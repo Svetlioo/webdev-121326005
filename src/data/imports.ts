@@ -56,15 +56,18 @@ export async function findImport(id: number): Promise<Import | null> {
 
 /**
  * Takes the oldest queued import and marks it processing, so two workers never take the same one.
+ * waitSeconds: only an import that has waited at least that long (the backup worker lets the laptop go first).
  * One left in processing for 10 minutes (the worker died) is taken again.
  */
-export async function claimNextImport(): Promise<ImportJob | null> {
+export async function claimNextImport(waitSeconds = 0): Promise<ImportJob | null> {
   const { rows } = await db().query(
     `UPDATE imports SET status = 'processing', updated_at = now()
       WHERE id = (SELECT id FROM imports
-                   WHERE status = 'queued' OR (status = 'processing' AND updated_at < now() - interval '10 minutes')
+                   WHERE (status = 'queued' AND updated_at <= now() - make_interval(secs => $1))
+                      OR (status = 'processing' AND updated_at < now() - interval '10 minutes')
                    ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
       RETURNING id::int AS id, plan_id::int AS "planId", source_url AS "sourceUrl", image, image_type AS "imageType", instructions`,
+    [waitSeconds],
   );
   return rows[0] ?? null;
 }

@@ -204,8 +204,8 @@ export async function deletePlan(actor: Actor | null, id: number): Promise<void>
  * the plan keeps what it had. It is saved only if nobody changed the plan meanwhile.
  * No actor: the owner was checked when the plan was queued.
  */
-export async function processNextPlan(model: ModelClient): Promise<number | null> {
-  const id = await claimNextPlan();
+export async function processNextPlan(model: ModelClient, waitSeconds = 0): Promise<number | null> {
+  const id = await claimNextPlan(waitSeconds);
   if (id === null) return null;
   try {
     const plan = (await findPlan(id))!;

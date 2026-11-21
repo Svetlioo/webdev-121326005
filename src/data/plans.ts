@@ -128,13 +128,15 @@ export async function failPlan(id: number): Promise<void> {
 }
 
 /** Takes the oldest plan waiting for the model; one stuck in processing for 10 minutes is taken again. */
-export async function claimNextPlan(): Promise<number | null> {
+export async function claimNextPlan(waitSeconds = 0): Promise<number | null> {
   const { rows } = await db().query(
     `UPDATE plans SET model_status = 'processing', updated_at = now()
       WHERE id = (SELECT id FROM plans
-                   WHERE model_status = 'queued' OR (model_status = 'processing' AND updated_at < now() - interval '10 minutes')
+                   WHERE (model_status = 'queued' AND updated_at <= now() - make_interval(secs => $1))
+                      OR (model_status = 'processing' AND updated_at < now() - interval '10 minutes')
                    ORDER BY updated_at FOR UPDATE SKIP LOCKED LIMIT 1)
       RETURNING id::int AS id`,
+    [waitSeconds],
   );
   return rows[0]?.id ?? null;
 }

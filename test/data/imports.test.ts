@@ -59,7 +59,10 @@ describe('publishDraft', () => {
 describe('the queue', () => {
   test('claiming takes the oldest queued import with SKIP LOCKED, or nothing', async () => {
     expect(await claimNextImport()).toBeNull();
-    expect(sql(pool.query)[0]).toMatch(/status = 'queued' OR \(status = 'processing' AND updated_at < now\(\) - interval '10 minutes'\) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1/);
+    expect(sql(pool.query)[0]).toMatch(/status = 'queued' AND updated_at <= now\(\) - make_interval\(secs => \$1\)\) OR \(status = 'processing' AND updated_at < now\(\) - interval '10 minutes'\) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1/);
+    expect(pool.query.mock.calls[0][1]).toEqual([0]);
+    await claimNextImport(30); // the backup worker only takes imports that waited 30 s
+    expect(pool.query.mock.calls[1][1]).toEqual([30]);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 3 }] });
     expect(await claimNextImport()).toEqual({ id: 3 });
   });

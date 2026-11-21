@@ -199,8 +199,8 @@ function failureMessage(error: unknown): string {
  * (status ready) or the reason (status failed). Runs only in src/worker, never in a request,
  * so it has no actor: the publisher who queued the import was checked by startImport.
  */
-export async function processNextImport(model: ModelClient, getPage = fetchPage): Promise<ImportJob | null> {
-  const job = await claimNextImport();
+export async function processNextImport(model: ModelClient, getPage = fetchPage, waitSeconds = 0): Promise<ImportJob | null> {
+  const job = await claimNextImport(waitSeconds);
   if (!job) return null;
   try {
     let text: string | undefined;

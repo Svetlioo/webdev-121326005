@@ -224,6 +224,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
                 </ol>
               )}
               {canEdit && <ChatInput planId={plan.id} />}
+              <p className="text-xs text-muted-foreground">
+                Отговаря локалният модел на лаптопа; когато той е изключен, отговаря Gemini на Google и вашите инструкции, снимки и съобщения се изпращат към Google.
+              </p>
             </section>
 
 
