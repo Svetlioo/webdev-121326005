@@ -89,6 +89,18 @@ The second front door: the MCP tool `add_class_note` in `mcp-server/server.ts` r
 
 Where my code does not match the layering: `processNextImport` in `src/services/imports.ts` and `processNextPlan` in `src/services/plans.ts` are service functions with no actor, because only the worker (`src/worker/index.ts`) calls them and the plan's owner was checked when the import was queued. It also fetches the schedule page itself (`fetchPage`), so this service does network I/O instead of only holding rules. Server Components such as `app/plans/[id]/page.tsx` call services directly, without a route handler, which AGENTS.md allows.
 
+
+Where each screen is rendered:
+
+| Screen | Rendered | Why | While it waits |
+| --- | --- | --- | --- |
+| Sign in (`app/signin/page.tsx`) | browser | a form with no data to load; Better Auth's client sets the cookie | the button says "Моля, изчакайте…" |
+| My plans (`app/plans/page.tsx`) | server | the lists come from the database and must not show to a stranger | the skeleton in `app/plans/loading.tsx` |
+| A plan (`app/plans/[id]/page.tsx`) | server, with client islands for the forms, the chat and the calendar | the access check and the labels are computed on the server; FullCalendar needs the browser | the skeleton, then "Моделът мисли…" / "в опашката" for model work, refreshing every 3 s |
+| All classes (`app/plans/[id]/classes/page.tsx`) | server | a read-only list with search through the URL | the skeleton |
+| Import review (`app/plans/[id]/imports/[importId]/page.tsx`) | server | the draft is checked against the rules on the server | the skeleton |
+| Users (`app/admin/users/page.tsx`) | server | admins only, checked on the server | the skeleton; the select is disabled while saving |
+
 ## Acceptance criteria
 <!-- Every criterion carries an id. A test proves it by naming that id in its title, for example
      test('AC-3 a booking that overlaps another is refused with 409', ...).
