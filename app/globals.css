@@ -211,3 +211,14 @@
   border-color: oklch(0.6 0.2 25);
   color: oklch(0.35 0.1 25);
 }
+
+/* Touch screens: every control is at least 44px tall, so a finger can hit it. */
+@media (pointer: coarse) {
+  button,
+  select,
+  input:not([type='checkbox']),
+  textarea,
+  a[data-slot='button'] {
+    min-height: 44px;
+  }
+}

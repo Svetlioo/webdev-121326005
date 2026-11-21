@@ -32,11 +32,13 @@ Do not decide which classes they can attend; the app does that.`;
 // 32k tokens is enough for one photo or one page of 30,000 characters, plus the model's thinking.
 const CONTEXT_TOKENS = 32_768;
 
-export type OllamaOptions = { url: string; model: string; timeoutMs: number; fetch?: typeof fetch };
+/** think: whether the model reasons before answering. Off by default: slower and not needed to copy a
+ *  timetable or read busy times; MODEL_THINK=true turns it on. */
+export type OllamaOptions = { url: string; model: string; timeoutMs: number; think?: boolean; fetch?: typeof fetch };
 
 type Message = { role: 'system' | 'user' | 'assistant'; content: string; images?: string[] };
 
-export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = fetch }: OllamaOptions): ModelClient {
+export function createOllamaClient({ url, model, timeoutMs, think = false, fetch: fetchImpl = fetch }: OllamaOptions): ModelClient {
   /** One chat call whose answer must have the schema's shape (structured output). Returns the parsed JSON. */
   async function ask(messages: Message[], schema: z.ZodType): Promise<unknown> {
     let body: { message?: { content?: string } };
@@ -45,7 +47,7 @@ export function createOllamaClient({ url, model, timeoutMs, fetch: fetchImpl = f
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: AbortSignal.timeout(timeoutMs),
-        body: JSON.stringify({ model, stream: false, format: jsonSchema(schema), options: { num_ctx: CONTEXT_TOKENS }, messages }),
+        body: JSON.stringify({ model, stream: false, think, format: jsonSchema(schema), options: { num_ctx: CONTEXT_TOKENS }, messages }),
       });
       if (!response.ok) throw new ModelUnavailableError(`Ollama answered ${response.status}`);
       body = await response.json(); // the timeout covers reading the answer too
@@ -113,5 +115,6 @@ export function modelFromEnv(env: Record<string, string | undefined> = process.e
     url: env.OLLAMA_URL,
     model: env.MODEL_NAME || 'qwen3.8:27b-mlx',
     timeoutMs: Number(env.MODEL_TIMEOUT_MS) || 120_000,
+    think: env.MODEL_THINK === 'true',
   });
 }

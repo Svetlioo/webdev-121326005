@@ -50,7 +50,7 @@ export function installFakes(): Store {
   vi.mocked(users.findUserIdByEmail).mockImplementation(async (email) => (/^(ana|boris|vera|admin)@test\.bg$/.test(email) ? email.split('@')[0] : null));
 
   vi.mocked(plans.insertPlan).mockImplementation(async (ownerId, name, myGroup) => {
-    db.plans.push({ id: db.plans.length + 1, ownerId, ownerEmail: `${ownerId}@test.bg`, name, myGroup, subjects: {}, windows: [], windowsFrom: 'parser', modelStatus: 'idle' });
+    db.plans.push({ id: db.plans.length + 1, ownerId, ownerEmail: `${ownerId}@test.bg`, name, myGroup, subjects: {}, windows: [], windowsFrom: 'parser', modelStatus: 'idle', updatedAt: new Date().toISOString() });
     return db.plans.length;
   });
   vi.mocked(plans.findPlan).mockImplementation(async (id) => structuredClone(db.plans.find((p) => p.id === id) ?? null));

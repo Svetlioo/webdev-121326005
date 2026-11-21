@@ -15,6 +15,8 @@ export type Plan = {
   windows: TimeWindow[];
   windowsFrom: 'parser' | 'model';
   modelStatus: ModelStatus;
+  /** When the plan last changed or was queued: long in the queue means no worker is running. */
+  updatedAt: string;
 };
 
 export type Source = { id: number; text: string | null; imageType: string | null };
@@ -22,7 +24,7 @@ export type Message = { id: number; role: 'user' | 'assistant'; content: string 
 export type Share = { userId: string; email: string };
 
 const PLAN = `p.id::int AS id, p.owner_id AS "ownerId", u.email AS "ownerEmail", p.name, p.my_group AS "myGroup", p.subjects,
-  p.windows, p.windows_from AS "windowsFrom", p.model_status AS "modelStatus"`;
+  p.windows, p.windows_from AS "windowsFrom", p.model_status AS "modelStatus", p.updated_at AS "updatedAt"`;
 
 export async function insertPlan(ownerId: string, name: string, myGroup: string | null): Promise<number> {
   const { rows } = await db().query('INSERT INTO plans (owner_id, name, my_group) VALUES ($1, $2, $3) RETURNING id::int AS id', [

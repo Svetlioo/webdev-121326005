@@ -21,7 +21,7 @@ vi.mock('../../src/data/plans');
 const ana = { id: 'ana', role: 'student' };
 const boris = { id: 'boris', role: 'student' };
 const as = (actor: typeof ana | null) => vi.mocked(getActor).mockResolvedValue(actor);
-const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', myGroup: '222', subjects: {}, windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const };
+const plan = { id: 1, ownerId: 'ana', ownerEmail: 'ana@test.bg', name: 'План', myGroup: '222', subjects: {}, windows: [], windowsFrom: 'parser' as const, modelStatus: 'idle' as const, updatedAt: '' };
 const req = (method: string, body?: unknown) =>
   new Request('http://localhost:3000/api/x', { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });

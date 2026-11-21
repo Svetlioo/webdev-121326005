@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+coverage
+test
+checks
+.playwright-mcp
+*.md
+!README.md

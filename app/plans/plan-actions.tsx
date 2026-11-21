@@ -35,17 +35,17 @@ export function CreatePlanForm({ sampleTitle }: { sampleTitle: string }) {
         run('/api/plans', json('POST', body), (created) => router.push(`/plans/${created.id}`));
       }}
     >
-      <label className="grid gap-1 text-sm">
+      <label className="grid gap-1 text-sm sm:col-span-2">
         Име на програмата
         <Input name="name" required maxLength={100} placeholder="напр. Зимен семестър" />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input type="checkbox" name="fromSample" />
+        Започни от примерното разписание: {sampleTitle}
       </label>
       <Button type="submit" disabled={busy}>
         Създай програма
       </Button>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
-        <input type="checkbox" name="fromSample" />
-        Започни от примерното разписание: {sampleTitle}
-      </label>
       <div className="sm:col-span-2">
         <Problem text={error} />
       </div>

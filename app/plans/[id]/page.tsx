@@ -48,6 +48,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
   const imports = canEdit ? await listImports(actor, plan.id) : [];
   const importing = imports.some((i) => i.status === 'queued' || i.status === 'processing');
   const thinking = plan.modelStatus === 'queued' || plan.modelStatus === 'processing';
+  // Waiting for more than two minutes means no worker is running (the model lives on the laptop).
+  const longAgo = (iso: string | Date) => Date.now() - new Date(iso).getTime() > 120_000;
+  const modelOff = thinking && longAgo(plan.updatedAt);
   const weekHref = (w: number) => `/plans/${plan.id}?week=${w}`;
 
   return (
@@ -107,6 +110,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
                             <span className="min-w-0 truncate text-xs text-muted-foreground">{i.sourceUrl ?? 'снимка'}</span>
                           </span>
                           {i.error && <span className="text-xs text-destructive">{i.error}</span>}
+                          {i.status === 'queued' && longAgo(i.createdAt) && (
+                            <span className="text-xs text-muted-foreground">Моделът е изключен в момента; внасянето ще продължи, когато се включи.</span>
+                          )}
                           {i.status === 'ready' && (
                             <Link href={`/plans/${plan.id}/imports/${i.id}`} className="text-xs underline underline-offset-4">
                               Прегледай и публикувай
@@ -173,7 +179,9 @@ export default async function PlanPage({ params, searchParams }: Props) {
               <p className="text-xs text-muted-foreground">
                 {plan.windowsFrom === 'model'
                   ? 'Прочетени от AI модела от инструкциите, снимките и чата.'
-                  : 'AI моделът още не е прочел инструкциите (изключен е или работи). Дотогава часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“.'}
+                  : modelOff
+                    ? 'AI моделът е изключен в момента. Часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“, докато моделът се включи.'
+                    : 'AI моделът още не е прочел инструкциите. Дотогава часовете са приблизителни, по прости правила като „от 9:00 до 16:30 в делничните дни“.'}
               </p>
               {plan.modelStatus === 'failed' && (
                 <p className="text-xs text-muted-foreground">Моделът не успя да отговори, затова часовете са изчислени без него.</p>
@@ -212,7 +220,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                       {m.content}
                     </li>
                   ))}
-                  {thinking && <li className="justify-self-start rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">Чака модела…</li>}
+                  {thinking && <li className="justify-self-start rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{modelOff ? 'Моделът е изключен в момента; ще отговори, когато се включи.' : 'Моделът мисли…'}</li>}
                 </ol>
               )}
               {canEdit && <ChatInput planId={plan.id} />}
