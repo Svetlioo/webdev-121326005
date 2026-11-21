@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { handle, mcpActor } from '../mcp-server/server';
+import { handle, logLine, mcpActor } from '../mcp-server/server';
 import * as entries from '../src/data/entries';
 import { addNote, getWeek } from '../src/services/schedule';
 import { createPlan } from '../src/services/plans';
@@ -22,6 +22,15 @@ beforeEach(async () => {
   vi.resetAllMocks();
   db = installFakes();
   planId = await createPlan(ana, { name: 'Зима', myGroup: '222', fromSample: true });
+});
+
+describe('the log', () => {
+  test('R4 the server logs which method and tool were called, never the arguments (no note text or personal data)', () => {
+    const line = JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'add_class_note', arguments: { entry_id: 1, text: 'лична бележка' } } });
+    expect(logLine(line)).toBe('got: tools/call add_class_note');
+    expect(logLine('{"jsonrpc":"2.0","id":1,"method":"initialize"}')).toBe('got: initialize');
+    expect(logLine('not json')).toBe('got: a line that is not JSON');
+  });
 });
 
 describe('MCP tools', () => {
