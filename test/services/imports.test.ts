@@ -244,6 +244,9 @@ describe('what an import may start from', () => {
   test.each([
     ['nothing', {}],
     ['an address that is not http', { sourceUrl: 'file:///etc/passwd' }],
+    ['R1 an address in my home network', { sourceUrl: 'http://192.168.1.1/' }],
+    ['R1 the laptop\'s own model server', { sourceUrl: 'http://127.0.0.1:11434/api/tags' }],
+    ['R1 a site that is not TU Sofia\'s', { sourceUrl: 'https://example.com/schedule' }],
     ['a photo that is not an image', { image: photo, imageType: 'application/pdf' }],
     ['a photo with no type', { image: photo }],
     ['a photo over 10 MB', { image: Buffer.alloc(10 * 1024 * 1024 + 1), imageType: 'image/png' }],
@@ -269,6 +272,16 @@ describe('reading a page', () => {
 
   test('a page without student lists is kept whole', () => {
     expect(pageText('<p>ОИТ</p>')).toBe(' ОИТ ');
+  });
+
+  test('R1 only TU Sofia pages are imported, never through a redirect, and a huge page is cut off', async () => {
+    await startImport(ana, 1, { sourceUrl: 'https://tu-sofia.bg/schedule' });
+    await startImport(ana, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' });
+    expect(insertImport).toHaveBeenCalledTimes(2);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('x'.repeat(3_000_000)));
+    expect((await fetchPage('https://cs.fcst.bg')).length).toBe(2_000_000);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'error' });
+    fetchMock.mockRestore();
   });
 
   test('fetchPage returns the page, or fails on an error status', async () => {
