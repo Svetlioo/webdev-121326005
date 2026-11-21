@@ -162,6 +162,58 @@ describe('my plan', () => {
     expect(view.messages.map((x) => x.content)).toEqual(['В събота не мога', 'Разбрах.', 'Махнах „В събота не мога.“']);
   });
 
+  test('AC-25 from the chat the model skips the КЗ lab in week 6 and notes a test on the КЗ lecture in week 7; a note for a class that is not there rejects the whole answer', async () => {
+    const id = await createPlan(ana, { name: 'С разписание', myGroup: '222', fromSample: true });
+    const kz = db.entries.find((e) => e.planId === id && e.course === 'КЗ' && e.type === 'lab' && e.day === 6 && e.startsAt === '10:30')!.id;
+    await sendMessage(ana, id, 'В 6. седмица не ходя на КЗ упражнение, а в 7. има контролно на КЗ лекцията');
+    const m = model(async () => ({
+      reply: 'Готово.',
+      windows: [],
+      notes: [
+        { course: 'КЗ', type: 'lab', week: 6, text: 'Не ходя' },
+        { course: 'КЗ', type: 'lecture', week: 7, text: 'Контролно' },
+        { course: 'КЗ', type: 'lecture', week: 7, text: 'Контролно' }, // the same note twice is saved once
+      ],
+    }));
+    await processNextPlan(m);
+    expect((await getPlan(ana, id, 6)).classes.find((c) => c.id === kz)).toMatchObject({ skipped: true, label: null });
+    expect((await getPlan(ana, id, 8)).classes.find((c) => c.id === kz)).toMatchObject({ skipped: false });
+    expect((await getPlan(ana, id, 7)).classes.filter((c) => c.course === 'КЗ' && c.type === 'lecture').map((c) => c.notes.map((n) => n.text))).toEqual([['Контролно']]);
+    expect(m.readPlan).toHaveBeenCalledWith(expect.objectContaining({ notes: [] }));
+
+    // Taking it back, and the model sees the notes already there.
+    await sendMessage(ana, id, 'Все пак ще ходя на КЗ в 6. седмица');
+    const back = model(async () => ({ reply: 'Връщам го.', windows: [], notes: [{ course: 'КЗ', type: 'lab', week: 6, text: 'не ходя', remove: true }] }));
+    await processNextPlan(back);
+    expect(back.readPlan).toHaveBeenCalledWith(expect.objectContaining({ notes: expect.arrayContaining([{ course: 'КЗ', type: 'lab', week: 6, text: 'Не ходя' }]) }));
+    expect((await getPlan(ana, id, 6)).classes.find((c) => c.id === kz)).toMatchObject({ skipped: false });
+
+    // Week 1 has no УП lab (it starts in week 3), and group 222 has no ПИ lecture: the whole answer is rejected.
+    for (const wrong of [{ course: 'УП', type: 'lab', week: 1, text: 'Не ходя' }, { course: 'ПИ', type: 'lecture', week: null, text: 'x' }]) {
+      await sendMessage(ana, id, 'Още една промяна');
+      const before = db.notes.length;
+      await processNextPlan(model(async () => ({ reply: 'Готово.', windows: [{ day: 1, from: '09:00', to: '10:00', what: 'x' }], notes: [wrong] })));
+      expect(db.notes).toHaveLength(before);
+      expect((await getPlan(ana, id, 3)).plan).toMatchObject({ modelStatus: 'failed' });
+    }
+  });
+
+  test('an empty list of instructions from the model keeps the instructions the plan has', async () => {
+    const id = await newPlan();
+    await sendMessage(ana, id, 'Работя от 9 до 17');
+    await processNextPlan(model(async () => ({ reply: 'Добре.', windows: [], instructions: ['Работя от 9 до 17.'] })));
+    await sendMessage(ana, id, 'Благодаря');
+    await processNextPlan(model(async () => ({ reply: 'Моля.', windows: [], instructions: [], subjects: [], notes: [] })));
+    expect(db.sources.filter((s) => s.planId === id).map((s) => s.text)).toEqual(['Работя от 9 до 17.']);
+  });
+
+  test('a note the model gives for every week lands on every class of that subject the plan follows', async () => {
+    const id = await createPlan(ana, { name: 'С разписание', myGroup: '222', fromSample: true });
+    await sendMessage(ana, id, 'КЗ лекцията е в Teams');
+    await processNextPlan(model(async () => ({ reply: 'Добре.', windows: [], notes: [{ course: 'КЗ', type: 'lecture', week: null, text: 'В Teams' }] })));
+    expect(db.notes.filter((n) => n.planId === id)).toMatchObject([{ week: null, text: 'В Teams' }]);
+  });
+
   test('a skipped class has no label', async () => {
     const id = await createPlan(ana, { name: 'С разписание', myGroup: '222', fromSample: true });
     const lab = db.entries.find((e) => e.planId === id && e.course === 'УП' && e.type === 'lab' && e.day === 1)!.id;

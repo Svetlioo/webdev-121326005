@@ -37,6 +37,16 @@ export const subjectChange = z.object({
   group: z.string().nullable(),
 });
 
+/** A note on the classes of one subject in one week (or every week, week null): "Не ходя", "Отменено" or any
+ *  short note; remove takes such a note back. */
+export const noteChange = z.object({
+  course: z.string().min(1),
+  type: z.enum(['lecture', 'seminar', 'lab']),
+  week: z.number().int().min(1).max(15).nullable(),
+  text: z.string().min(1).max(200),
+  remove: z.boolean().optional(),
+});
+
 /**
  * A plan: a short reply for the chat and the student's busy windows; and, only when the student asked
  * for it in the chat, the complete new list of personal instructions and the subjects to change.
@@ -46,11 +56,13 @@ export const planAnswer = z.object({
   windows: z.array(timeWindow).max(50),
   instructions: z.array(z.string().min(1).max(1000)).max(20).optional(),
   subjects: z.array(subjectChange).max(30).optional(),
+  notes: z.array(noteChange).max(20).optional(),
 });
 
 export type TimeWindow = z.infer<typeof timeWindow>;
 export type PlanAnswer = z.infer<typeof planAnswer>;
 export type SubjectChange = z.infer<typeof subjectChange>;
+export type NoteChange = z.infer<typeof noteChange>;
 
 /** The JSON Schema Ollama receives as `format`. */
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);

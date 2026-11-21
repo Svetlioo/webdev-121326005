@@ -21,7 +21,11 @@ export const PLAN_PROMPT = `You help a university student in Sofia plan their we
    messages. If nothing changed, leave it out.
 3. subjects: only if the student asks to take a subject with another group, or to drop one, return those subjects with the
    group to attend (one of the groups that have it) or null to drop it. Otherwise leave it out.
-4. reply: a short, friendly answer in Bulgarian saying what you understood and what you changed.
+4. notes: only if the student says something about the classes of one subject in one week (or every week), return
+   course and type exactly as in the subjects list, week (1 to 15, or null for every week) and text: "Не ходя" when
+   they will skip it, "Отменено" when it is cancelled, otherwise a short note such as "Контролно". To take back a note
+   from the list of notes, return it with remove: true. Otherwise leave it out.
+5. reply: a short, friendly answer in Bulgarian saying what you understood and what you changed.
 Do not decide which classes they can attend; the app does that.`;
 
 /** The user message of a schedule import: the page text (or a note that the timetable is in the photo) and the instructions. */
@@ -39,5 +43,6 @@ export function planUserText(source: PlanSource): string {
     `My group: ${source.myGroup ?? 'not chosen yet'}`,
     `Subjects (course, type: groups that have it; my choice):\n${subjects || '(no timetable yet)'}`,
     `My instructions:\n${instructions}${source.images.length ? '\nMy photos are attached.' : ''}`,
+    `Notes on my classes (course, type, week; text):\n${(source.notes ?? []).map((n) => `- ${n.course}, ${n.type}, ${n.week ?? 'every week'}; ${n.text}`).join('\n') || '(none)'}`,
   ].join('\n\n');
 }

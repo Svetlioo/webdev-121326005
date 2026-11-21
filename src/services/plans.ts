@@ -3,6 +3,7 @@
 // Access rules are in src/services/access.ts.
 import type { Actor } from '../auth';
 import { insertEntries, listEntries, type Entry } from '../data/entries';
+import { deleteNote as deleteNoteRow, insertNote, listNotes, type Note } from '../data/notes';
 import {
   addShare,
   applyModelAnswer,
@@ -33,10 +34,10 @@ import {
 import { sampleTimetable } from '../data/templates';
 import { findUserIdByEmail } from '../data/users';
 import type { ModelClient } from '../model/client';
-import { planAnswer, type SubjectChange } from '../model/schemas';
+import { planAnswer, type NoteChange, type SubjectChange } from '../model/schemas';
 import { editablePlan, isAdmin, readablePlan } from './access';
 import { AppError, requireActor } from './errors';
-import { getWeek, subjectKey, subjectsOf, type Subject, type WeekClass } from './schedule';
+import { attends, followedGroup, getWeek, subjectKey, subjectsOf, type Subject, type WeekClass } from './schedule';
 import { labelClass, parseWindows, type Label } from './windows';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -59,6 +60,15 @@ export type PlanView = {
 };
 
 const groupsOf = (entries: Entry[]) => [...new Set(entries.flatMap((e) => e.groups.map((g) => g.name)))].sort();
+
+/** The classes a note from the chat is about: that subject's classes the plan follows in that week (or in any week). */
+function noteTargets(entries: Entry[], plan: Pick<Plan, 'myGroup' | 'subjects'>, n: NoteChange): Entry[] {
+  return entries.filter((e) => {
+    const group = e.course === n.course && e.type === n.type ? followedGroup(plan, e) : null;
+    if (group === null) return false;
+    return n.week === null ? e.groups.some((g) => g.name === group) : attends(e, group, n.week);
+  });
+}
 
 /** How the chat records an instruction or photo the student removed. */
 export const REMOVED = 'Махнах';
@@ -231,13 +241,32 @@ export async function processNextPlan(model: ModelClient, waitSeconds = 0): Prom
       messages: (await listMessages(id)).map(({ role, content }) => ({ role, content })),
       myGroup: plan.myGroup,
       subjects: subjectsOf(entries, plan).map(({ course, type, groups, chosen }) => ({ course, type, groups, chosen })),
+      // listNotes only returns notes on this plan's classes, so each one's class is in entries.
+      notes: (await listNotes(id)).map((n) => {
+        const e = entries.find((x) => x.id === n.entryId)!;
+        return { course: e.course, type: e.type, week: n.week, text: n.text };
+      }),
     });
     const answer = planAnswer.safeParse(output);
     if (!answer.success) throw new Error('the answer does not match the schema');
     const subjects = answer.data.subjects ? applyChanges(entries, plan, answer.data.subjects) : undefined;
     if (subjects === null) throw new Error('a subject change is not possible');
-    const saved = await applyModelAnswer(id, { windows: answer.data.windows, subjects, instructions: answer.data.instructions });
-    if (saved) await insertMessage(id, 'assistant', answer.data.reply);
+    // Every note must be about a class the plan really has in that week (after the subject changes).
+    const changes = (answer.data.notes ?? []).map((n) => ({ ...n, targets: noteTargets(entries, { ...plan, subjects: subjects ?? plan.subjects }, n) }));
+    if (changes.some((c) => c.targets.length === 0)) throw new Error('a note for a class that is not there');
+    // An empty list means "nothing changed" (models send [] for a field they should leave out); × removes instructions.
+    const instructions = answer.data.instructions?.length ? answer.data.instructions : undefined;
+    const saved = await applyModelAnswer(id, { windows: answer.data.windows, subjects, instructions });
+    if (!saved) return id;
+    const existing = await listNotes(id);
+    for (const c of changes) {
+      for (const e of c.targets) {
+        const same = (n: Note) => n.entryId === e.id && n.week === c.week && n.text.toLowerCase() === c.text.trim().toLowerCase();
+        if (c.remove) for (const n of existing.filter(same)) await deleteNoteRow(n.id);
+        else if (!existing.some(same)) existing.push(await insertNote(e.id, c.week, c.text.trim(), plan.ownerId));
+      }
+    }
+    await insertMessage(id, 'assistant', answer.data.reply);
   } catch {
     await failPlan(id);
   }

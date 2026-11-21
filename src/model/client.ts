@@ -15,6 +15,8 @@ export type PlanSource = {
   messages: { role: 'user' | 'assistant'; content: string }[];
   myGroup: string | null;
   subjects: { course: string; type: string; groups: string[]; chosen: string | null }[];
+  /** The notes already on the plan's classes (week null: every week). */
+  notes?: { course: string; type: string; week: number | null; text: string }[];
 };
 
 export interface ModelClient {
