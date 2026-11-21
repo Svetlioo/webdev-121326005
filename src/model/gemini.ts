@@ -62,7 +62,9 @@ export function createGeminiClient({ apiKey, model, timeoutMs, fetch: fetchImpl 
     readPlan(source: PlanSource) {
       const first: Content = { role: 'user', parts: [{ text: planUserText(source) }, ...source.images.map(image)] };
       const chat: Content[] = source.messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-      return ask(PLAN_PROMPT, [first, ...chat], planAnswer);
+      // The conversation must end with the student's turn.
+      const last: Content[] = chat.at(-1)?.role === 'model' ? [{ role: 'user', parts: [{ text: 'Answer now with the JSON.' }] }] : [];
+      return ask(PLAN_PROMPT, [first, ...chat, ...last], planAnswer);
     },
   };
 }

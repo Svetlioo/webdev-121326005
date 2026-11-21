@@ -61,6 +61,9 @@ export function ImportForm({ planId }: { planId: number }) {
         Указания към модела (по желание)
         <Input name="instructions" placeholder="напр. упражненията по ПИ започват от 2. седмица" />
       </label>
+      <p className="text-xs text-muted-foreground">
+        Чете го локалният модел на лаптопа; когато той е изключен или зает, го чете Gemini на Google и линкът, снимката и указанията се изпращат към Google.
+      </p>
       <Error text={error} />
       <Button type="submit" disabled={busy} className="justify-self-start">
         Внеси разписанието

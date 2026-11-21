@@ -26,7 +26,7 @@ What is true about the deployed app, how I checked each claim, and what is still
 ## What happens when things fail
 
 - Database down: `/health` answers `503 {"status":"error","db":"down"}` and the plan pages show "Програмата не може да се зареди" (the admin page "Страницата не може да се зареди") with a retry button. How I checked: I stopped the database container and opened a plan and `/health` (screenshot `docs/ui/error.png`).
-- Model down or laptop off: the site keeps working; busy times are computed by the plain parser ("Приблизително, без AI"), imports and chat wait, and after two minutes the page says "Моделът е изключен в момента". How I checked: no worker running, sent a chat message and waited.
+- Laptop off: after 30 s the backup worker answers imports and chat with Gemini. With no Gemini key, or Gemini rate-limited too, the site keeps working: busy times come from the plain parser ("Приблизително, без AI"), jobs wait or fail with a reason, and after two minutes the page says "Моделът е изключен в момента". How I checked: no worker running, sent a chat message and waited.
 - Model too slow: after `MODEL_TIMEOUT_MS` the import is `failed` with "Моделът не отговори навреме…" and a retry. How I checked: test `AC-4` and a real run with `qwen3-vl:4b` that timed out at 120 s.
 - A missing variable: the server does not start and names it (above).
 - Broken input: malformed JSON or an empty field gives a 400 with a Bulgarian sentence, never a stack trace. How I checked: `test/api/routes.test.ts` sends `null` and empty bodies through the real route handlers.
@@ -51,7 +51,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 
 ## Known gaps, ranked by risk
 
-1. The model only runs on my laptop: when it is off, imports and chat answers wait (the rest works). A student cannot import a timetable without it.
+1. When the laptop is off or busy, jobs go to Gemini, so the timetable, instructions, photos and chat leave the app for Google (free tier: may be used for training). Without the laptop and without Gemini (no key, or rate-limited) imports and chat answers wait.
 2. A real import depends on the model: `qwen3.8:27b-mlx` (the one I use) took about 20 s and got all 19 classes right; the lighter `qwen3-vl:4b-instruct` got 16 of 19. A photo or another faculty's layout may still be read wrongly, so the student reviews the draft before "Публикувай".
 3. Data-layer tests use a fake pool, so the SQL is checked by hand and by the browser runs, not by automated tests against PostgreSQL.
 4. The Google sign-in round trip is not tested automatically (only up to the redirect with state and PKCE).
@@ -59,7 +59,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 
 ## The model feature in production
 
-- Data that leaves the app: with the laptop on, none: the worker reads jobs from Neon and calls Ollama on `localhost`. With the laptop off, the website's backup worker sends a job that has waited 30 s to Google's Gemini API: the timetable text or photo, and for a plan the personal instructions, photos and chat. On the free tier Google may use that data to improve its products; the plan page tells the student.
+- Data that leaves the app: for a job the laptop answers, none: the worker reads jobs from Neon and calls Ollama on `localhost`. When the laptop is off or busy, the website's backup worker sends a job that has waited 30 s to Google's Gemini API: the timetable text or photo, and for a plan the personal instructions, photos and chat. On the free tier Google may use that data to improve its products; the plan page tells the student.
 - Cost: $0 per call with the local model. Gemini 2.5 Flash on the free tier is $0 within its daily limits (a 429 marks the job failed); on the paid tier one import (about 1,700 input and 2,000 output tokens) is well under one cent at Google's list price. One import of the faculty page is about 1,700 prompt tokens and 2,000 output tokens, about 20 s on the laptop with `qwen3.8:27b-mlx`.
 - When it is down or slow: 120 s timeout per call, the job is `failed` with a readable reason, the parser fallback keeps the labels working, and the page says when the model is off. Answers are checked against a JSON schema and real data before they are saved.
 - How I checked: tests with a fake client (good answer, nonsense answer, timeout, no model) and a real import of https://cs.fcst.bg/page.php?id=89 with `qwen3.8:27b-mlx`, compared class by class with the sample timetable (19/19 fully right in 20 s).

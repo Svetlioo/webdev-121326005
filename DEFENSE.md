@@ -20,7 +20,7 @@ Demo: sign up, new plan from the sample timetable, group 222, move the УП lab 
 - Stack: Next.js App Router with TypeScript as one server-rendered app on Node 22, PostgreSQL through plain `pg`, Vitest. One codebase for pages and the REST API, deployable as one Docker container on Render. I rejected a separate SPA plus API because it doubles the deploy and the auth. A need for real-time collaboration would change my mind.
 - Where the rules live: in `src/services/`, one file per area, each function taking the actor first and checking permissions itself; routes only read the request and map `AppError` to a status; only `src/data/` writes SQL. Hiding a button is never the check: the tests call services and routes directly.
 - Authentication and authorization: Better Auth for email and password (scrypt) and Google (state and PKCE, matched on `sub`, linking only while signed in with a verified email). Roles are only `student` and `admin`; per plan there is an owner and read-only readers. I removed a "publisher" role because every student owns their timetable.
-- The model, and why that one: Qwen through Ollama on my laptop, because it reads text and images and no timetable or personal instruction leaves my machine. It is called only from the worker, never in a request; every answer must match a JSON schema and is re-checked against real data; with no model a plain parser keeps the labels working and the page says the model is off.
+- The model, and why that one: Qwen3.8-27B through Ollama on my laptop, because it reads text and images, reads the faculty page in about 20 s with every class right, and nothing it answers leaves my machine; Gemini 2.5 Flash is the backup when the laptop is off or busy, and the page tells the student that their data then goes to Google. It is called only from the worker, never in a request; every answer must match a JSON schema and is re-checked against real data; with no model a plain parser keeps the labels working and the page says the model is off.
 - What the MCP server exposes, and what it deliberately does not: `get_my_week`, `search_classes`, `add_class_note` (plus the two Exercise 1 tools). It acts as one student, refuses an admin token, and cannot import, delete, share or change roles.
 - The database shape: `plans` own everything (`entries` with `entry_groups`, `notes`, `imports`, `plan_sources`, `plan_messages`, `plan_shares`); subject choices are a small JSON map on the plan; migrations are numbered files applied once each in a transaction.
 
@@ -32,7 +32,7 @@ Demo: sign up, new plan from the sample timetable, group 222, move the УП lab 
 
 ## What is wrong with it
 
-1. The model only runs on my laptop; with it off, imports and chat answers wait.
+1. With the laptop off, Gemini answers, so the data goes to Google; without either, imports and chat answers wait.
 2. The small model reads the faculty page in about 3 minutes and gets lecture weeks wrong; the review step is necessary.
 3. The SQL is not tested against a real database automatically.
 4. The Google round trip is not tested automatically.

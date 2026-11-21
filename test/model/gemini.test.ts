@@ -27,7 +27,7 @@ describe('the Gemini client', () => {
     expect(JSON.parse(String(vi.mocked(fetchMock).mock.calls[0][1]!.body)).contents[0].parts[1]).toEqual({ inlineData: { mimeType: 'image/png', data: Buffer.from('png').toString('base64') } });
     expect(await client(fetchMock).readPlan(plan)).toEqual({ reply: 'ok', windows: [] });
     const body = JSON.parse(String(vi.mocked(fetchMock).mock.calls[1][1]!.body));
-    expect(body.contents.map((c: { role: string }) => c.role)).toEqual(['user', 'user', 'model']);
+    expect(body.contents.map((c: { role: string }) => c.role)).toEqual(['user', 'user', 'model', 'user']);
     expect(body.contents[0].parts[0].text).toContain('Работя от 9:00 до 16:30');
     expect(body.contents[0].parts[1].inlineData.mimeType).toBe('image/png');
   });
