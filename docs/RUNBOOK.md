@@ -213,10 +213,23 @@ curl -s -X POST http://localhost:3000/api/auth/sign-in/email -H 'content-type: a
 # 2. автоматичната проверка (същата като в CI)
 node mcp-server/check.mjs -- npm run --silent mcp
 
-# 3. истински клиент: Claude Code в тази папка
-claude mcp add tu-programa -- npm run --silent mcp
-# после в Claude: „Какво имам в 3. седмица на програма 4?“ → вика get_my_week
+# 3. истински клиент: Claude Code в тази папка (веднъж; вече е добавен)
+claude mcp add tu-programa --scope local -- npm --prefix "$PWD" run --silent mcp
+claude mcp list                   # tu-programa: ✔ Connected
 ```
+
+**Демо в Claude Code** (нова сесия `claude` в папката на проекта, или `/mcp` → `tu-programa` → Reconnect в текущата;
+сайтът и базата трябва да работят). Програма 28 „Зимен семестър“ на `student@test.bg`, група 222:
+
+| Питаш Claude | Вика | Какво показва |
+| --- | --- | --- |
+| „Какво имам в 3. седмица на програма 28?“ | `get_my_week` | занятията на групата за седмицата, същите като в календара |
+| „Кога и в коя зала е КЗ упражнението в програма 28?“ | `search_classes` | събота 10:30, зала 1211 |
+| „Отбележи, че КЗ лекцията в 7. седмица е отменена“ | `get_my_week` + `add_class_note` | бележката „Отменено“ се появява в календара на сайта (обнови страницата) |
+| „Какво се учи в лекция 5?“ | `find_lecture` | лекцията от курса |
+| „Покажи ми програма 1“ (чужда) | `get_my_week` | „Програмата не е намерена.“, същите права като в сайта |
+
+Токенът в `.env` е сесия на `student@test.bg` и изтича след 7 дни; тогава вземи нов с командата от стъпка 1.
 
 ---
 
