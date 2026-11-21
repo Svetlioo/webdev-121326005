@@ -12,6 +12,7 @@ import {
 } from '../../src/data/imports';
 import { ModelOutputError, ModelTimeoutError, ModelUnavailableError, type ModelClient } from '../../src/model/client';
 import {
+  checkDraftClass,
   fetchPage,
   isPrivateAddress,
   isPublicUrl,
@@ -146,7 +147,7 @@ describe('the import flow', () => {
 });
 
 describe('review', () => {
-  test('AC-5 a class at a time that is not a TU Sofia period, or for a group that is not a TU group number, is invalid and blocks Publish', async () => {
+  test('AC-5 a class at a time that is not a TU Sofia period, or for a group that is not letters and digits, is invalid and blocks Publish', async () => {
     const offPeriod = { ...good, startsAt: '08:00' };
     const noGroup = { ...good, groups: [{ name: 'група x', parity: 'all' as const }] };
     vi.mocked(findImport).mockResolvedValue(anImport({ draft: [good, offPeriod, noGroup] }));
@@ -164,6 +165,14 @@ describe('review', () => {
     expect(updateImport).toHaveBeenCalledWith(1, 'ready', { draft: [good, offPeriod] });
     vi.mocked(findImport).mockResolvedValue(anImport({ draft: [good] }));
     expect((await getImport(ana, 1)).canPublish).toBe(true);
+  });
+
+  test('a group is letters and digits, at most 10 characters and at most 3 digits', () => {
+    const problems = (name: string) => checkDraftClass({ ...good, groups: [{ name, parity: 'all' }] });
+    for (const name of ['222', '221а', '221Б', '432a', 'КСИ1', 'А', '12', 'ИнфТех'])
+      expect(problems(name), name).toEqual([]);
+    for (const name of ['2222', '22а22', 'гр. 222', '222-а', '222 а', 'КомпютърниСистеми'])
+      expect(problems(name), name).toHaveLength(1);
   });
 
   test('every field of a class is checked', async () => {

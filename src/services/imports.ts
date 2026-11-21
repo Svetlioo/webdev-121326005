@@ -29,8 +29,8 @@ const PERIODS = [
   ['17:45', '18:30'], ['18:45', '19:30'], ['19:45', '20:30'], ['20:45', '21:30'],
 ];
 const STARTS = PERIODS.map((p) => p[0]);
-/** A TU Sofia group number: three digits and maybe a letter, such as 222 or 221а. */
-const GROUP = /^\d{3}[а-яa-z]?$/i;
+/** A group name: letters and digits only, at most 10 characters and at most 3 digits, such as 222, 221а, КСИ1 or А. */
+const isGroupName = (name: string) => /^[0-9a-zа-яѝ]{1,10}$/i.test(name) && (name.match(/\d/g) ?? []).length <= 3;
 const ENDS = PERIODS.map((p) => p[1]);
 
 export type CheckedClass = DraftClass & { problems: string[] };
@@ -49,7 +49,7 @@ export function checkDraftClass(c: DraftClass): string[] {
   if (!c.groups.length) problems.push('Липсва група.');
   if (new Set(c.groups.map((g) => g.name)).size < c.groups.length) problems.push('Група се повтаря в едно занятие.');
   for (const g of c.groups) {
-    if (!GROUP.test(g.name)) problems.push(`Група „${g.name}“ не е номер на група в ТУ (като 222 или 221а).`);
+    if (!isGroupName(g.name)) problems.push(`Група „${g.name}“ трябва да е от букви и цифри, най-много 3 цифри (като 222, 221а или КСИ1).`);
     if (!['all', 'odd', 'even'].includes(g.parity)) problems.push(`Група ${g.name} е без четна/нечетна седмица.`);
   }
   return problems;

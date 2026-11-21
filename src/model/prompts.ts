@@ -9,7 +9,7 @@ Rules: "л." or "Лекция" is a lecture, "л.у." or "Лабораторно
 Lectures are held every week (parity all) from week 1, unless the page says otherwise for that lecture.
 Only a class marked "Нечетна седмица" / "Четна седмица", or a cell split diagonally, alternates: give each group its parity.
 The notes under the timetable give the week each course's labs start (for example "ПИ – от 2. седмица"): use them as startWeek of those labs; lectures start in week 1.
-The room is only its number or name, without the word "Зала". Groups are TU Sofia group numbers such as 221а or 222. Never include names of students or teachers.`;
+The room is only its number or name, without the word "Зала". Groups are the group names as written, letters and digits only, such as 221а, 222 or КСИ1 (without "гр." or "група"). Never include names of students or teachers.`;
 
 export const PLAN_PROMPT = `You help a university student in Sofia plan their week around their classes.
 1. windows: from the student's instructions, photos and messages, list every time they are busy (work, meetings, travel):

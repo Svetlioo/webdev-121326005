@@ -18,7 +18,7 @@ describe('the Ollama client', () => {
     expect(body).toMatchObject({ model: 'qwen', stream: false, think: false, options: { num_ctx: 32768 } });
     // Structured output: the answer's JSON Schema, not just "json".
     expect(body.format).toMatchObject({ type: 'object', required: ['classes'] });
-    expect(body.messages[0].content).toContain('221а or 222');
+    expect(body.messages[0].content).toContain('221а, 222 or КСИ1');
     expect(body.messages[1].content).toContain('ПИ л.у. 1211');
     expect(body.messages[1].content).toContain('само 222');
   });
