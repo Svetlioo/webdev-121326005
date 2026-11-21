@@ -33,3 +33,15 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Went wrong: the worker used top-level await and crashed under tsx (CommonJS); only the Playwright run caught it, the unit tests could not. The first review of the MCP server found that one bad input line killed the server and that the user was looked up only once. Both were fixed.
 - Not checked: the real Qwen model on a real photo or page (Ollama was not running)
 - Changed by hand: nothing yet
+
+## 2026-11-11 – 2026-11-21 · Claude Code, from Exercise 3 to Exercise 4 (DRAFT: rewrite in your own words)
+- Goal: finish Exercise 3, reshape the product to per-student plans, then the Exercise 4 code and documents
+- Autonomy: the agent worked alone within one step; I chose the scope at each step (trim ACs, roles, per-subject groups, free rooms removed) and read the summary before each commit
+- Checkpoints used: `npm test` and coverage before every commit, a review agent after every step, Playwright runs against the app, the self-checks
+- Plan (in steps, each committed): Google sign-in; API tests; FullCalendar week view; my plans (sources, chat, labels, sharing, admin); timetable per plan and roles student/admin; groups, then my group + per-subject choice; chat changes instructions and subjects; Exercise 4 (`/health`, env check, 404, Dockerfile, UI evidence, READINESS)
+- Changed in review: the review agents found a worker overwriting newer changes (now saved only while `processing`), a page cut that dropped the whole timetable when a menu tab said "Списъчен състав", an admin MCP token reaching every plan (now refused), a missing keyboard order in the new-plan form, and stale spec rows
+- Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s
+- Changed by hand: (fill in)
+
+## What the agent did that I did not ask for
+- (fill in after reading `git diff --stat 0a2a0a9 HEAD`) e.g. a `test/fakes.ts` in-memory data layer, the `MODEL_THINK` setting, `instrumentation.ts`, standalone Next output in the Dockerfile, the touch-target CSS
