@@ -64,6 +64,7 @@ describe('MCP tools', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await mcpActor('t', async () => ({ id: 'a', role: 'admin' }))).toBeNull();
     expect(await mcpActor('t', async () => ana)).toEqual(ana);
+    expect(await mcpActor(undefined, async () => ana)).toBeNull(); // no token: nobody, and Better Auth is not loaded
   });
 
   test('without a valid MCP_TOKEN every project tool is refused like a visitor', async () => {

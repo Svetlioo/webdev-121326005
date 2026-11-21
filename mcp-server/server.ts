@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { actorFromToken, type Actor } from '../src/auth';
+import type { Actor } from '../src/auth';
 import { closeDb } from '../src/data/db';
 import { AppError } from '../src/services/errors';
 import { addNote, getWeek, searchClasses } from '../src/services/schedule';
@@ -150,10 +150,15 @@ export function logLine(line: string): string {
   }
 }
 
+type LookUp = (token: string) => Promise<Actor | null>;
+
 /** The user the server acts for: MCP_TOKEN's user, who must be a student. An admin's token is refused,
- *  so the MCP server can never reach every plan. */
-export async function mcpActor(token: string | undefined, lookUp = actorFromToken): Promise<Actor | null> {
-  const actor = await lookUp(token);
+ *  so the MCP server can never reach every plan. Better Auth is loaded only when there is a token, so the
+ *  server answers `initialize` at once (loading it takes most of the start-up time). */
+export async function mcpActor(token: string | undefined, lookUp?: LookUp): Promise<Actor | null> {
+  if (!token) return null;
+  const find = lookUp ?? (await import('../src/auth')).actorFromToken;
+  const actor = await find(token);
   if (actor?.role === 'admin') {
     console.error("MCP_TOKEN belongs to an admin; use a student's session instead");
     return null;
