@@ -62,9 +62,9 @@ describe('plans over HTTP', () => {
     expect(plans.insertSource).not.toHaveBeenCalled();
   });
 
-  test('AC-20 deleting someone else\'s plan gets 403, and signed out 401; the plan stays', async () => {
+  test('AC-20 deleting someone else\'s plan gets 404, and signed out 401; the plan stays', async () => {
     as({ id: 'vera', role: 'student' });
-    expect((await deletePlanRoute(req('DELETE'), params({ id: '1' }))).status).toBe(403);
+    expect((await deletePlanRoute(req('DELETE'), params({ id: '1' }))).status).toBe(404);
     as(null);
     expect((await deletePlanRoute(req('DELETE'), params({ id: '1' }))).status).toBe(401);
     expect(plans.deletePlan).not.toHaveBeenCalled();

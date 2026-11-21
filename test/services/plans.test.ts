@@ -278,14 +278,14 @@ describe('sharing and access', () => {
     expect(db.messages).toHaveLength(0);
   });
 
-  test('AC-20 a stranger gets 403 for reading, changing and deleting; nobody signed in 401; an admin can open and change any plan', async () => {
+  test('AC-20 for a stranger the plan does not exist (404) for reading, changing and deleting; nobody signed in 401; an admin can open and change any plan', async () => {
     const id = await newPlan();
-    await expect(getPlan(vera, id, 3)).rejects.toMatchObject({ status: 403 });
-    await expect(addSource(vera, id, { text: WORK })).rejects.toMatchObject({ status: 403 });
-    await expect(sendMessage(vera, id, 'x')).rejects.toMatchObject({ status: 403 });
-    await expect(sharePlan(vera, id, 'vera@test.bg')).rejects.toMatchObject({ status: 403 });
-    await expect(getSourceImage(vera, id, 1)).rejects.toMatchObject({ status: 403 });
-    await expect(deletePlan(vera, id)).rejects.toMatchObject({ status: 403 });
+    await expect(getPlan(vera, id, 3)).rejects.toMatchObject({ status: 404 });
+    await expect(addSource(vera, id, { text: WORK })).rejects.toMatchObject({ status: 404 });
+    await expect(sendMessage(vera, id, 'x')).rejects.toMatchObject({ status: 404 });
+    await expect(sharePlan(vera, id, 'vera@test.bg')).rejects.toMatchObject({ status: 404 });
+    await expect(getSourceImage(vera, id, 1)).rejects.toMatchObject({ status: 404 });
+    await expect(deletePlan(vera, id)).rejects.toMatchObject({ status: 404 });
     await expect(getPlan(null, id, 3)).rejects.toMatchObject({ status: 401 });
     expect(db.plans).toHaveLength(1);
     expect(await getPlan(admin, id, 3)).toMatchObject({ isOwner: false, canEdit: true });
@@ -307,8 +307,8 @@ describe('sharing and access', () => {
     await expect(deletePlan(boris, id)).rejects.toMatchObject({ status: 403 });
     expect((await getPlan(ana, id, 3)).shares).toEqual([{ userId: 'boris', email: 'boris@test.bg' }]);
     await unsharePlan(ana, id, 'boris');
-    await expect(getPlan(boris, id, 3)).rejects.toMatchObject({ status: 403 });
-    await expect(unsharePlan(boris, id, 'boris')).rejects.toMatchObject({ status: 403 });
+    await expect(getPlan(boris, id, 3)).rejects.toMatchObject({ status: 404 });
+    await expect(unsharePlan(boris, id, 'boris')).rejects.toMatchObject({ status: 404 });
     await deletePlan(ana, id);
     expect(db.plans).toHaveLength(0);
   });

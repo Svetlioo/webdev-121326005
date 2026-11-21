@@ -44,7 +44,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 ## Security basics
 
 - Passwords hashed with scrypt by Better Auth; sessions in `HttpOnly`, `SameSite=Lax` cookies, `Secure` in production.
-- Every service function checks the actor itself (deny by default): a stranger gets 403, nobody signed in 401. How I checked: tests `AC-10`, `AC-18`, `AC-19`, `AC-20`, `AC-21` (service and API) and curl against the running app.
+- Every service function checks the actor itself (deny by default): a reader who tries to change a plan gets 403, for a stranger the plan does not exist (404, so ids reveal nothing), nobody signed in 401. How I checked: tests `AC-10`, `AC-18`, `AC-19`, `AC-20`, `AC-21` (service and API) and curl against the running app.
 - No SQL outside `src/data/`, every query parameterised (`$1`); the MCP server calls services only and refuses an admin token.
 - Uploaded photos: only PNG/JPEG/WebP, at most 10 MB, served with their type and `nosniff`.
 - No secrets in the repository: `.env` ignored, `.env.example` has placeholders only.

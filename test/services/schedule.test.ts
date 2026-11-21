@@ -77,7 +77,7 @@ describe('the timetable of a plan', () => {
     await expect(setMyGroup(ana, none, '999')).rejects.toMatchObject({ status: 400 });
     await setMyGroup(ana, none, '222');
     expect(show(await getWeek(ana, none, 3))).toContain('УП lab 1 13:45–16:30 705');
-    await expect(setMyGroup(boris, none, '222')).rejects.toMatchObject({ status: 403 });
+    await expect(setMyGroup(boris, none, '222')).rejects.toMatchObject({ status: 404 });
   });
 
   test.each([0, 16, 2.5, NaN])('week %s gives 400', async (week) => {
@@ -117,11 +117,11 @@ describe('notes', () => {
     expect((await getWeek(ana, plan222, 2)).find((c) => c.id === lecture)).toMatchObject({ cancelled: false, notes: [{ text: 'Задължителна лекция' }] });
   });
 
-  test('a reader or a stranger cannot add a note (403); an admin can', async () => {
+  test('a reader cannot add a note (403), a stranger does not find the plan (404); an admin can', async () => {
     const lab = sampleId('КЗ', 'lab', 6, '10:30');
     await sharePlan(ana, plan222, 'boris@test.bg');
     await expect(addNote(boris, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 403 });
-    await expect(addNote(vera, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 403 });
+    await expect(addNote(vera, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 404 });
     await expect(addNote(null, { entryId: lab, week: 6, text: 'x' })).rejects.toMatchObject({ status: 401 });
     expect(db.notes).toHaveLength(0);
     await addNote(admin, { entryId: lab, week: 6, text: 'Проверено' });
@@ -174,9 +174,9 @@ describe('deleting a class', () => {
     await expect(deleteClass(ana, 999)).rejects.toMatchObject({ status: 404 });
   });
 
-  test('reading needs access: a stranger gets 403 for the week and search', async () => {
-    await expect(getWeek(vera, plan222, 3)).rejects.toMatchObject({ status: 403 });
-    await expect(searchClasses(vera, plan222, 'ПИ')).rejects.toMatchObject({ status: 403 });
-    await expect(listClasses(vera, plan222)).rejects.toMatchObject({ status: 403 });
+  test('reading needs access: for a stranger the plan does not exist (404) for the week and search', async () => {
+    await expect(getWeek(vera, plan222, 3)).rejects.toMatchObject({ status: 404 });
+    await expect(searchClasses(vera, plan222, 'ПИ')).rejects.toMatchObject({ status: 404 });
+    await expect(listClasses(vera, plan222)).rejects.toMatchObject({ status: 404 });
   });
 });

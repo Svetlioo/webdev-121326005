@@ -1,9 +1,12 @@
 // Who may do what with a plan. Everything a student has lives in a plan, so this is the one place
 // the app decides access: the owner and an admin may change a plan; someone it is shared with may
-// only read it; anyone else gets 403, and nobody signed in gets 401.
+// only read it (and gets 403 for a change); for anyone else the plan does not exist (404, the same
+// answer as for a plan that really does not exist, so ids reveal nothing); nobody signed in gets 401.
 import type { Actor } from '../auth';
 import { findPlan, isSharedWith, type Plan } from '../data/plans';
 import { AppError, requireActor } from './errors';
+
+const NOT_FOUND = 'Програмата не е намерена.';
 
 export const isAdmin = (actor: Actor | null) => actor?.role === 'admin';
 
@@ -13,10 +16,9 @@ export type Access = { plan: Plan; actor: Actor; isOwner: boolean; canEdit: bool
 export async function readablePlan(actor: Actor | null, id: number): Promise<Access> {
   const me = requireActor(actor);
   const plan = Number.isInteger(id) ? await findPlan(id) : null;
-  if (!plan) throw new AppError(404, 'Програмата не е намерена.');
-  const isOwner = plan.ownerId === me.id;
+  const isOwner = plan?.ownerId === me.id;
   const canEdit = isOwner || isAdmin(me);
-  if (!canEdit && !(await isSharedWith(id, me.id))) throw new AppError(403, 'Тази програма не е споделена с вас.');
+  if (!plan || (!canEdit && !(await isSharedWith(id, me.id)))) throw new AppError(404, NOT_FOUND);
   return { plan, actor: me, isOwner, canEdit };
 }
 

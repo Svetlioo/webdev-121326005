@@ -46,10 +46,10 @@ beforeEach(async () => {
 });
 
 describe('POST /api/plans/:id/imports', () => {
-  test('AC-10 a student who sends POST /api/plans/:id/imports for a plan that is not theirs gets 403 and no row is added to imports', async () => {
+  test('AC-10 a student who sends POST /api/plans/:id/imports for a plan that is not theirs gets 404 and no row is added to imports', async () => {
     signedInAs(vera);
     const res = await importRoute(form({ url: 'https://cs.fcst.bg/page.php?id=89' }), params({ id: String(planId) }));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect(await res.json()).toHaveProperty('error');
     expect(insertImport).not.toHaveBeenCalled();
   });

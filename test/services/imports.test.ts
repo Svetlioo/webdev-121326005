@@ -207,19 +207,19 @@ describe('review', () => {
 });
 
 describe('the photo of an import', () => {
-  test('the owner sees the photo an import started with; a stranger gets 403; an import without one 404', async () => {
+  test('the owner sees the photo an import started with; a stranger gets 404; an import without one 404', async () => {
     vi.mocked(findImport).mockResolvedValue(anImport({ hasImage: true }));
     vi.mocked(findImportImage).mockResolvedValue({ data: photo, type: 'image/png' });
     expect(await getImportImage(ana, 1)).toEqual({ data: photo, type: 'image/png' });
-    await expect(getImportImage(vera, 1)).rejects.toMatchObject({ status: 403 });
+    await expect(getImportImage(vera, 1)).rejects.toMatchObject({ status: 404 });
     vi.mocked(findImportImage).mockResolvedValue(null);
     await expect(getImportImage(ana, 1)).rejects.toMatchObject({ status: 404 });
   });
 });
 
 describe('who may import', () => {
-  test('AC-10 a student who starts an import for a plan that is not theirs gets 403 and no row is added to imports', async () => {
-    await expect(startImport(vera, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' })).rejects.toMatchObject({ status: 403 });
+  test('AC-10 a student who starts an import for a plan that is not theirs gets 404 and no row is added to imports', async () => {
+    await expect(startImport(vera, 1, { sourceUrl: 'https://cs.fcst.bg/page.php?id=89' })).rejects.toMatchObject({ status: 404 });
     expect(insertImport).not.toHaveBeenCalled();
   });
 
@@ -231,7 +231,7 @@ describe('who may import', () => {
     ['retry', () => retryImport(vera, 1)],
   ])('someone who does not own the plan cannot %s its imports', async (_name, action) => {
     vi.mocked(findImport).mockResolvedValue(anImport());
-    await expect(action()).rejects.toMatchObject({ status: 403 });
+    await expect(action()).rejects.toMatchObject({ status: 404 });
     expect(publishDraft).not.toHaveBeenCalled();
     expect(updateImport).not.toHaveBeenCalled();
   });

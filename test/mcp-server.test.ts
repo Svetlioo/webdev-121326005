@@ -47,7 +47,7 @@ describe('MCP tools', () => {
 
   test('AC-14 add_class_note on a class of someone else\'s plan is refused and no note is added', async () => {
     const reply = await call('add_class_note', { entry_id: 18, week: 6, text: 'Отменено' }, vera);
-    expect(reply.result).toMatchObject({ isError: true, content: [{ text: 'Тази програма не е споделена с вас.' }] });
+    expect(reply.result).toMatchObject({ isError: true, content: [{ text: 'Програмата не е намерена.' }] });
     expect(db.notes).toHaveLength(0);
   });
 

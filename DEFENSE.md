@@ -7,11 +7,11 @@
 
 Students at TU Sofia build their own weekly plan from their faculty's timetable: they import it from the faculty page or a photo (a local model reads it, they review and publish it), pick their group and, per subject, which group's sessions they attend, write their work hours, and see every class in a week calendar marked "can attend", "needs time off" or "email the teacher". They can share a plan read-only; an admin sees every plan.
 
-Demo: sign up, new plan from the sample timetable, group 222, move the УП lab to 221а, add "Работя от 9:00 до 16:30 в делничните дни", show the colours in week 4, add "Отменено" to a class, share with a second account, and open the same plan as a stranger (403).
+Demo: sign up, new plan from the sample timetable, group 222, move the УП lab to 221а, add "Работя от 9:00 до 16:30 в делничните дни", show the colours in week 4, add "Отменено" to a class, share with a second account, and open the same plan as a stranger (404).
 
 ## The three files I will open
 
-1. `src/services/access.ts`, because it is the one place that decides who may read or change a plan: owner or admin may change, a reader may only read, anyone else gets 403, nobody signed in 401. Every plan, class, note and import goes through it.
+1. `src/services/access.ts`, because it is the one place that decides who may read or change a plan: owner or admin may change, a reader may only read (403 for a change), for anyone else the plan does not exist (404), nobody signed in 401. Every plan, class, note and import goes through it.
 2. `src/services/plans.ts`, because it shows the boundary between layers and the model: the chat answer is structured output, checked against a zod schema and against the timetable (`applyChanges`) before `applyModelAnswer` saves it, all or nothing. It knows nothing about HTTP.
 3. `mcp-server/server.ts`, because the second front door calls the same services as the routes (`getWeek`, `searchClasses`, `addNote`), acts as one student through `MCP_TOKEN`, and contains no SQL.
 
