@@ -63,7 +63,7 @@ export function toDraft(output: unknown): DraftClass[] {
     day: Number(c?.day),
     startsAt: String(c?.startsAt ?? '').padStart(5, '0'),
     endsAt: String(c?.endsAt ?? '').padStart(5, '0'),
-    room: String(c?.room ?? '').trim(),
+    room: String(c?.room ?? '').replace(/^(зала|room)\s*/i, '').trim(),
     startWeek: Number(c?.startWeek ?? 1),
     groups: Array.isArray(c?.groups) ? c.groups.map((g: any) => ({ name: String(g?.name ?? ''), parity: g?.parity ?? 'all' })) : [],
   }));

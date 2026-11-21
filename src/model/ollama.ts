@@ -16,7 +16,8 @@ startsAt and endsAt as HH:MM, room, startWeek and groups (each with name and par
 Rules: "л." or "Лекция" is a lecture, "л.у." or "Лабораторно упражнение" is a lab, "с.у." is a seminar; the room follows the type.
 Lectures are held every week (parity all) from week 1, unless the page says otherwise for that lecture.
 Only a class marked "Нечетна седмица" / "Четна седмица", or a cell split diagonally, alternates: give each group its parity.
-Notes such as "упражненията по ПИ започват от 2 седмица" set startWeek of those labs only; everything else starts in week 1. Groups are TU Sofia group numbers such as 221а or 222. Never include names of students or teachers.`;
+The notes under the timetable give the week each course's labs start (for example "ПИ – от 2. седмица"): use them as startWeek of those labs; lectures start in week 1.
+The room is only its number or name, without the word "Зала". Groups are TU Sofia group numbers such as 221а or 222. Never include names of students or teachers.`;
 
 const PLAN_PROMPT = `You help a university student in Sofia plan their week around their classes.
 1. windows: from the student's instructions, photos and messages, list every time they are busy (work, meetings, travel):
@@ -113,7 +114,7 @@ export function modelFromEnv(env: Record<string, string | undefined> = process.e
   if (!env.OLLAMA_URL) return noModel;
   return createOllamaClient({
     url: env.OLLAMA_URL,
-    model: env.MODEL_NAME || 'qwen3.8:27b-mlx',
+    model: env.MODEL_NAME || 'qwen3-vl:4b-instruct',
     timeoutMs: Number(env.MODEL_TIMEOUT_MS) || 120_000,
     think: env.MODEL_THINK === 'true',
   });

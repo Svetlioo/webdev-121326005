@@ -108,14 +108,14 @@ describe('the import flow', () => {
   test('a page import sends the page text, without the student lists', async () => {
     vi.mocked(claimNextImport).mockResolvedValue({ ...job, sourceUrl: 'https://cs.fcst.bg/page.php?id=89', image: null, imageType: null });
     const page = async () => '<h1>Разписание</h1><p>ПИ л.у. 1211</p><h2>Списъчен състав</h2><p>Студент Студентов</p>';
-    const model = fakeModel(async () => [{ ...good, startsAt: '7:30', endsAt: '10:15', groups: [{ name: '222' }] }]);
+    const model = fakeModel(async () => [{ ...good, startsAt: '7:30', endsAt: '10:15', room: 'Зала 705', groups: [{ name: '222' }] }]);
     await processNextImport(model, page);
     const sent = vi.mocked(model.readSchedule).mock.calls[0][0];
     expect(sent.text).toContain('ПИ л.у. 1211');
     expect(sent.text).not.toContain('Студентов');
     expect(sent.image).toBeUndefined();
     // Model output is tidied but not trusted: '7:30' becomes '07:30', a missing parity becomes 'all'.
-    expect(vi.mocked(updateImport).mock.calls[0][2]!.draft![0]).toMatchObject({ startsAt: '07:30', groups: [{ name: '222', parity: 'all' }] });
+    expect(vi.mocked(updateImport).mock.calls[0][2]!.draft![0]).toMatchObject({ startsAt: '07:30', room: '705', groups: [{ name: '222', parity: 'all' }] });
   });
 
   test('a sparse or broken answer becomes classes with empty fields, which the review then flags', async () => {

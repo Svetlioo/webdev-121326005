@@ -51,7 +51,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 ## Known gaps, ranked by risk
 
 1. The model only runs on my laptop: when it is off, imports and chat answers wait (the rest works). A student cannot import a timetable without it.
-2. A real import of the faculty page with `qwen3-vl:4b` takes about 3 minutes and reads lecture weeks wrongly (odd/even); the student must review it. The target model (27B) is better but slower.
+2. A real import of the faculty page with `qwen3-vl:4b-instruct` takes about 17 s and gets 16 of 19 classes fully right; the other 3 have a wrong lab start week, so the student must review the draft before "Публикувай".
 3. Data-layer tests use a fake pool, so the SQL is checked by hand and by the browser runs, not by automated tests against PostgreSQL.
 4. The Google sign-in round trip is not tested automatically (only up to the redirect with state and PKCE).
 5. Publishing a new import replaces a plan's classes and their notes; there are no versions.
@@ -59,9 +59,9 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 ## The model feature in production
 
 - Data that leaves the app: none. The model runs in Ollama on my laptop; the worker reads jobs from Neon and calls `localhost`. No timetable, instruction or photo is sent to a third-party provider.
-- Cost: $0 per call (local model, no provider). One import of the faculty page is about 2,000 prompt tokens and 2,500 output tokens.
+- Cost: $0 per call (local model, no provider). One import of the faculty page is about 1,700 prompt tokens and 2,000 output tokens, about 17 s on the laptop.
 - When it is down or slow: 120 s timeout per call, the job is `failed` with a readable reason, the parser fallback keeps the labels working, and the page says when the model is off. Answers are checked against a JSON schema and real data before they are saved.
-- How I checked: tests with a fake client (good answer, nonsense answer, timeout, no model) and real runs with `qwen3-vl:4b`.
+- How I checked: tests with a fake client (good answer, nonsense answer, timeout, no model) and a real import of https://cs.fcst.bg/page.php?id=89 with `qwen3-vl:4b-instruct`, compared class by class with the sample timetable (19/19 found, 16/19 fully right).
 
 ## The MCP server in production
 
