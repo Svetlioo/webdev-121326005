@@ -165,5 +165,5 @@ Where each screen is rendered:
 <!-- After the agent builds the slice: which criteria passed, which it missed or reinterpreted, and what you changed in this spec because of it. -->
 - Passes: every acceptance criterion above has a test whose title names it, and `npm test` passes.
 - Reinterpreted: AC-5 says "fixed or removed"; the review screen removes a class, and there is no form to edit one. AC-17's message comes from the sign-in page translating Better Auth's `INVALID_EMAIL_OR_PASSWORD` code.
-- Not built: importing from a PDF; an automated test of the whole Google sign-in round trip.
-- Change to the spec: AC-13 covers choosing a subject's group instead of free rooms.
+- Not built: importing from a PDF; an automated test of the whole Google sign-in round trip; moving one class to another day or time for one week (the chat can only add a note such as "Преместено в четвъртък").
+- Change to the spec: AC-13 covers choosing a subject's group instead of free rooms; AC-24 (skipping one class) and AC-25 (notes for one week from the chat) were added; AC-10 and AC-20 expect 404, not 403, for a plan that is not yours, so an id reveals nothing.

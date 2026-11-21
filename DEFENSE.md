@@ -5,9 +5,9 @@
 
 ## What it does
 
-Students at TU Sofia build their own weekly plan from their faculty's timetable: they import it from the faculty page or a photo (a local model reads it, they review and publish it), pick their group and, per subject, which group's sessions they attend, write their work hours, and see every class in a week calendar marked "can attend", "needs time off" or "email the teacher". They can share a plan read-only; an admin sees every plan.
+Students at TU Sofia build their own weekly plan from their faculty's timetable: they import it from the faculty page or a photo (a local model reads it, they review and publish it), pick their group and, per subject, which group's sessions they attend, tell the model in a chat when they are busy and what changes in a given week, and see every class in a week calendar marked "can attend", "needs time off" or "email the teacher". They can share a plan read-only; an admin sees every plan.
 
-Demo: sign up, new plan from the sample timetable, group 222, move the УП lab to 221а, add "Работя от 9:00 до 16:30 в делничните дни", show the colours in week 4, add "Отменено" to a class, share with a second account, and open the same plan as a stranger (404).
+Demo: sign up, new plan from the sample timetable, group 222, move the УП lab to 221а, write "Работя от 9:00 до 16:30 в делничните дни" in the chat, show the colours in week 4, write "В 6. седмица не ходя на КЗ упражнението", add "Отменено" to a class, share with a second account, and open the same plan as a stranger (404).
 
 ## The three files I will open
 
@@ -26,17 +26,18 @@ Demo: sign up, new plan from the sample timetable, group 222, move the УП lab 
 
 ## How I know it works
 
-- 160+ tests: every acceptance criterion in SPEC.md has a test whose title names it (the traceability table); service tests use an in-memory fake data layer, API tests send real `Request` objects through the route handlers, the model is a fake client (good, nonsense, timeout, no model).
-- Coverage: 100% of `src/services`, about 91% of `src/`. It does not cover `app/` pages or `mcp-server/`, and the data layer is tested with a fake pool, not real PostgreSQL.
+- 184 tests: every acceptance criterion in SPEC.md has a test whose title names it (the traceability table); service tests use an in-memory fake data layer, API tests send real `Request` objects through the route handlers, the model is a fake client (good, nonsense, timeout, no model).
+- Coverage: 100% of `src/services` (lines and branches), about 92% of `src/`; CI fails below 100% / 80%. It does not cover `app/` pages or `mcp-server/`, and the data layer is tested with a fake pool, not real PostgreSQL.
 - By hand and with Playwright against the running app: every AC flow, the four UI states, keyboard only, 380 px, contrast, `/health` 503 with the database stopped, the Docker image, and real imports with the local model.
 
 ## What is wrong with it
 
 1. With the laptop off, Gemini answers, so the data goes to Google; without either, imports and chat answers wait.
-2. The small model reads the faculty page in about 3 minutes and gets lecture weeks wrong; the review step is necessary.
+2. The good model (27B) needs my laptop to be on; a photo is read less reliably than the page, so the review step before publishing stays necessary.
 3. The SQL is not tested against a real database automatically.
 4. The Google round trip is not tested automatically.
 5. Publishing a new import replaces a plan's classes and their notes.
+6. Moving one class to another day or time for one week is only a note ("Преместено в четвъртък"); the box stays where the timetable puts it.
 
 ## The thing in this repository I did not write and cannot explain
 

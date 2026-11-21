@@ -40,9 +40,19 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Checkpoints used: `npm test` and coverage before every commit, a review agent after every step, Playwright runs against the app, the self-checks
 - Plan (in steps, each committed): Google sign-in; API tests; FullCalendar week view; my plans (sources, chat, labels, sharing, admin); timetable per plan and roles student/admin; groups, then my group + per-subject choice; chat changes instructions and subjects; Exercise 4 (`/health`, env check, 404, Dockerfile, UI evidence, READINESS)
 - Changed in review: the review agents found a worker overwriting newer changes (now saved only while `processing`), a page cut that dropped the whole timetable when a menu tab said "Списъчен състав", an admin MCP token reaching every plan (now refused), a missing keyboard order in the new-plan form, and stale spec rows
-- Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s
+- Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s (the thinking variant ignores `think: false`; fixed by switching to `qwen3.8:27b-mlx` without thinking, about 20 s, 19/19)
 - Changed by hand: (fill in)
 - A false claim the agent made about the deployment: (fill in after the deploy, or "none found")
+
+## 2026-11-21 · Claude Code, model, security fixes, chat UI, runbook (DRAFT: rewrite in your own words)
+- Goal: make the model usable in the demo (at most a minute), a backup when the laptop is off, Exercise 5's security fixes, and an interface a student understands without help
+- Decided by me: Qwen3.8-27B without thinking as the main model; Gemini 2.5 Flash as the backup, accepting that the data then goes to Google; the chat is the only place to write; skipping one class ("Не ходя") from the calendar and from the chat; a plan that is not yours is 404, not 403
+- Delegated: all code and tests; a review agent after each step; Playwright runs against the app; real runs with the 27B model
+- Checkpoints: `npm test` (184), coverage gates, `checks/ex2–ex5`, MCP check, `docker build`, CI green on PR #1
+- Changed in review: the parser read "Вече не работя в петък" as busy all of Friday, counted "до 10. седмица" and "до 20 минути" as times, and kept re-reading old chat messages so × did not remove a busy time; the page stopped polling after 2 minutes while Gemini could still answer; all fixed with tests
+- Went wrong: the worker kept running old code after a change, so the first real test of week notes saved nothing (restarting it fixed it); the model answers `"instructions": []` when nothing changed, which would have wiped the student's instructions (an empty list now means "no change")
+- Not checked: Gemini against the real API (no key yet); the deployed site
+- Changed by hand: (fill in)
 
 ## What the agent did that I did not ask for
 - (fill in after reading `git diff --stat 0a2a0a9 HEAD`) e.g. a `test/fakes.ts` in-memory data layer, the `MODEL_THINK` setting, `instrumentation.ts`, standalone Next output in the Dockerfile, the touch-target CSS
