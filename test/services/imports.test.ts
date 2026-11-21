@@ -247,6 +247,7 @@ describe('what an import may start from', () => {
     ['R1 an address in my home network', { sourceUrl: 'http://192.168.1.1/' }],
     ['R1 the laptop\'s own model server', { sourceUrl: 'http://127.0.0.1:11434/api/tags' }],
     ['R1 a site that is not TU Sofia\'s', { sourceUrl: 'https://example.com/schedule' }],
+    ['R1 an address that only looks like one', { sourceUrl: 'http://[not-a-host' }],
     ['a photo that is not an image', { image: photo, imageType: 'application/pdf' }],
     ['a photo with no type', { image: photo }],
     ['a photo over 10 MB', { image: Buffer.alloc(10 * 1024 * 1024 + 1), imageType: 'image/png' }],

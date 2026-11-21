@@ -79,6 +79,7 @@ export async function startImport(actor: Actor | null, planId: number, input: St
   const image = input.image?.length ? input.image : null;
   if (!url && !image) throw new AppError(400, 'Посочете адрес на страница, снимка или и двете.');
   if (url && !/^https?:\/\/\S+$/.test(url)) throw new AppError(400, 'Адресът трябва да започва с http:// или https://.');
+  if (url && !isTuSofiaPage(url)) throw new AppError(400, 'Може да се внася само страница на ТУ София (tu-sofia.bg или fcst.bg).');
   if (image && !IMAGE_TYPES.includes(input.imageType ?? '')) throw new AppError(400, 'Снимката трябва да е PNG, JPEG или WebP.');
   if (image && image.length > MAX_IMAGE_BYTES) throw new AppError(400, 'Снимката трябва да е до 10 MB.');
   const instructions = (input.instructions ?? '').trim().slice(0, 1000);
@@ -155,14 +156,30 @@ export function pageText(html: string): string {
   return (lists === -1 ? text : text.slice(0, lists)).slice(0, 30_000);
 }
 
+/**
+ * The worker fetches the page on the owner's laptop, so the address must be a TU Sofia site: never an
+ * address in the home network or the laptop itself (such as the model server on localhost).
+ */
+function isTuSofiaPage(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return ['tu-sofia.bg', 'fcst.bg'].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
+const MAX_PAGE_CHARS = 2_000_000;
+
 /** The schedule page could not be read. */
 class PageError extends Error {}
 
 /** Reads a page with a time limit. Replaced in tests. */
 export async function fetchPage(url: string): Promise<string> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  // No redirects: a TU Sofia address must not lead the worker on to another host.
+  const response = await fetch(url, { signal: AbortSignal.timeout(20_000), redirect: 'error' });
   if (!response.ok) throw new Error(`page answered ${response.status}`);
-  return response.text();
+  return (await response.text()).slice(0, MAX_PAGE_CHARS);
 }
 
 /** Why an import failed, for the publisher. */
