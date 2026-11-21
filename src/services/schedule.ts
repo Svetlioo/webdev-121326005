@@ -56,7 +56,6 @@ export function subjectsOf(entries: Entry[], plan: Pick<Plan, 'myGroup' | 'subje
 /** A note "Отменено" (for that week, or for every week) cancels the class. */
 const isCancelling = (note: Note) => /^отменено/i.test(note.text.trim());
 /** A note "Не ходя" (for that week, or for every week) means the student skips that one class. */
-export const SKIP_NOTE = 'Не ходя';
 const isSkipping = (note: Note) => /^не ходя/i.test(note.text.trim());
 
 /** Every class of the plan's timetable, sorted by day and start time. */

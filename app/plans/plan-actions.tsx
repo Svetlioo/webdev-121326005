@@ -115,8 +115,6 @@ export function SubjectsPanel(props: {
   );
 }
 
-/** Adds an instruction in plain words, or a photo. */
-
 /** A small × that sends one request, such as removing a source or a share. */
 export function RemoveButton({ url, label }: { url: string; label: string }) {
   const { busy, error, run } = useAction();
@@ -130,7 +128,6 @@ export function RemoveButton({ url, label }: { url: string; label: string }) {
   );
 }
 
-/** The chat input: a message to the model about the plan. */
 /** The only place the student writes: a message to the model, or a photo (such as a shift rota) for it to read. */
 export function ChatInput({ planId }: { planId: number }) {
   const { busy, error, run } = useAction();
@@ -154,6 +151,7 @@ export function ChatInput({ planId }: { planId: number }) {
         <Button render={<label />} nativeButton={false} variant="outline" size="icon" className="cursor-pointer" aria-disabled={busy} title="Качи снимка">
           <ImagePlus />
           <input
+            disabled={busy}
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="sr-only"

@@ -16,8 +16,15 @@ const DAYS: [RegExp, number][] = [
   [/петък/i, 5],
   [/събот/i, 6],
 ];
-// "от 9:00 до 16:30", "9:00-16:30", "от 9 до 13 ч."
-const RANGE = /(от\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:ч\.?)?\s*(?:до|-|–|—)\s*(\d{1,2})(?:[:.](\d{2}))?/gi;
+// "от 9:00 до 16:30", "9:00-16:30", "от 9 до 13 ч.", "от 9 часа до 17 часа"
+const RANGE = /(от\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:ч\.?|часа?)?\s*(?:до|-|–|—)\s*(\d{1,2})(?:[:.](\d{2}))?/gi;
+// After "след 17" or "до 12": a count of something else ("до 10. седмица", "до 20 минути", "12-та") is not a time.
+const NOT_A_TIME = String.raw`(?![.\d]*\s*(?:-?(?:ти|ви|ри|та|ия)(?![а-я])|седмиц|ден|дни|минут|души|пъти|месец|години))`;
+const AFTER = new RegExp(String.raw`след\s*(\d{1,2})(?:[:.](\d{2}))?` + NOT_A_TIME, 'gi');
+const UNTIL = new RegExp(String.raw`(?<![а-яa-z])до\s*(\d{1,2})(?:[:.](\d{2}))?` + NOT_A_TIME, 'gi');
+// A sentence that says the student is free is not a busy time.
+const FREE = /не работя|не съм зает|не съм заета|свобод/i;
+const DAY_HOUR = (h: string) => Number(h) >= 7 && Number(h) <= 21;
 
 const DAY_START = '07:30';
 const DAY_END = '21:30';
@@ -26,8 +33,9 @@ const hhmm = (h: string, m = '00') => `${h.padStart(2, '0')}:${m}`;
 /** Busy windows from instructions in plain words. A sentence with a time range and no day means weekdays. */
 export function parseWindows(texts: string[]): TimeWindow[] {
   const windows: TimeWindow[] = [];
-  // Sentences, and the parts of one joined by ", а" / ", но"; a dot after "ч" is not the end of one.
-  for (const sentence of texts.flatMap((t) => t.split(/[\n;]+|(?<!ч)\.\s+|,\s*(?:а|но)\s+/))) {
+  // Sentences (a dot and a capital letter; not "ч. " or "10. седмица"), and the parts joined by ", а", ", но" or ", в".
+  for (const sentence of texts.flatMap((t) => t.split(/[\n;]+|(?<!ч)\.\s+(?=[А-ЯA-Z])|,\s*(?:а|но)\s+|,\s*(?=(?:в|във)\s)/))) {
+    if (FREE.test(sentence)) continue;
     let days = DAY_WORDS.find(([re]) => re.test(sentence))?.[1];
     days ??= DAYS.filter(([re]) => re.test(sentence)).map(([, d]) => d);
     const namedDays = days.length > 0;
@@ -42,10 +50,10 @@ export function parseWindows(texts: string[]): TimeWindow[] {
       found.push({ from: hhmm(h1, m1), to: hhmm(h2, m2) });
     }
     // "след 17:00" is busy until the end of the day; "до 12" (with no "от") is busy from the start.
-    for (const m of rest.matchAll(/след\s*(\d{1,2})(?:[:.](\d{2}))?/gi)) found.push({ from: hhmm(m[1], m[2]), to: DAY_END });
-    for (const m of rest.matchAll(/(?<![а-яa-z])до\s*(\d{1,2})(?:[:.](\d{2}))?/gi)) found.push({ from: DAY_START, to: hhmm(m[1], m[2]) });
+    for (const m of rest.matchAll(AFTER)) if (DAY_HOUR(m[1])) found.push({ from: hhmm(m[1], m[2]), to: DAY_END });
+    for (const m of rest.matchAll(UNTIL)) if (DAY_HOUR(m[1])) found.push({ from: DAY_START, to: hhmm(m[1], m[2]) });
     // "в събота не мога" with no time is the whole day.
-    if (found.length === 0 && namedDays && /не мога|не съм свобод|зает|заета|ангажиран|работ/i.test(sentence)) found.push({ from: DAY_START, to: DAY_END });
+    if (found.length === 0 && namedDays && /не мога|зает|заета|ангажиран|цял ден на работа|на работа цял ден/i.test(sentence)) found.push({ from: DAY_START, to: DAY_END });
     for (const w of found) {
       if (w.from >= w.to || w.to > '23:59') continue; // backwards, or an hour such as 25
       for (const day of days) windows.push({ day, ...w, what });

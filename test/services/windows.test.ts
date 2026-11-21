@@ -32,8 +32,25 @@ describe('reading busy times from plain words', () => {
     expect(parseWindows(['Чакам до 5 минути', 'Харесвам петък', 'В сряда мога да идвам цял ден'])).toEqual([]); // "до 5" is before the day starts; a day without "не мога" is nothing
   });
 
+  test('being free, counts of weeks or minutes, and questions are not busy times', () => {
+    const none = [
+      'Вече не работя в петък',
+      'В събота не съм зает',
+      'В понеделник след 18 съм свободен',
+      'След 3 седмици започвам работа',
+      'Мога ли да ходя на УП до 10. седмица?',
+      'Ходя на КЗ до 12-та седмица',
+      'Пътят ми е до 20 минути',
+      'Звъня след 2 и чакам до 5', // hours outside the day are not times
+    ];
+    for (const text of none) expect(parseWindows([text]), text).toEqual([]);
+    expect(parseWindows(['Работя от 9 часа до 17 часа'])).toHaveLength(5);
+    expect(parseWindows(['Работя от 9 часа до 17 часа'])[0]).toMatchObject({ from: '09:00', to: '17:00' });
+    expect(parseWindows(['В понеделник мога, в сряда не мога'])).toEqual([{ day: 3, from: '07:30', to: '21:30', what: 'зает' }]);
+  });
+
   test('numbers that are not times, impossible hours and backwards ranges are ignored', () => {
-    expect(parseWindows(['Имам 2-3 часа свободни', 'от 25:00 до 26:00', 'от 18:00 до 9:00'])).toEqual([]);
+    expect(parseWindows(['Имам 2-3 часа почивка', 'от 25:00 до 26:00', 'от 18:00 до 9:00'])).toEqual([]);
   });
 });
 

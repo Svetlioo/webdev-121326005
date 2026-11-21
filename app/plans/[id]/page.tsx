@@ -56,7 +56,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-dvh bg-muted/40">
-      {(thinking || importing) && <AutoRefresh />}
+      {(thinking || importing) && <AutoRefresh key={String(plan.updatedAt)} />}
       <AppHeader actor={actor} current="plans" />
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">

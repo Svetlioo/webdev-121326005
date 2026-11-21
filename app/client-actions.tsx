@@ -74,16 +74,19 @@ export function ImportForm({ planId }: { planId: number }) {
 
 /** Reloads the page every few seconds while something waits for the worker, for two minutes at most:
  *  with no worker running (as on Render) the page must not poll forever. */
-export function AutoRefresh({ forMs = 120_000 }: { forMs?: number }) {
+export function AutoRefresh({ fastForMs = 150_000 }: { fastForMs?: number }) {
   const router = useRouter();
   useEffect(() => {
-    const timer = setInterval(() => router.refresh(), 3000);
-    const stop = setTimeout(() => clearInterval(timer), forMs);
-    return () => {
-      clearInterval(timer);
-      clearTimeout(stop);
+    // Every 3 s while an answer is likely (the backup answers within about 2.5 minutes), then every 15 s.
+    const started = Date.now();
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      router.refresh();
+      timer = setTimeout(tick, Date.now() - started < fastForMs ? 3000 : 15_000);
     };
-  }, [router, forMs]);
+    timer = setTimeout(tick, 3000);
+    return () => clearTimeout(timer);
+  }, [router, fastForMs]);
   return null;
 }
 

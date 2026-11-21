@@ -60,15 +60,17 @@ export type PlanView = {
 
 const groupsOf = (entries: Entry[]) => [...new Set(entries.flatMap((e) => e.groups.map((g) => g.name)))].sort();
 
-/** Reads approximate busy times from the instructions at once (no AI), and queues the plan for the model. */
 /** How the chat records an instruction or photo the student removed. */
 export const REMOVED = 'Махнах';
 
-/** Until the model answers, the parser reads the instructions and what the student wrote in the chat. */
+/** Reads approximate busy times at once (no AI) and queues the plan for the model: from the instructions,
+ *  and from the student's last message if the model has not answered it yet (older messages are already
+ *  in the instructions, or were dropped by the student). */
 async function recompute(planId: number): Promise<void> {
   const sources = (await listSources(planId)).flatMap((s) => (s.text ? [s.text] : []));
-  const said = (await listMessages(planId)).flatMap((m) => (m.role === 'user' && !m.content.startsWith(REMOVED) ? [m.content] : []));
-  const texts = [...sources, ...said];
+  const last = (await listMessages(planId)).at(-1);
+  const pending = last?.role === 'user' && !last.content.startsWith(REMOVED) ? [last.content] : [];
+  const texts = [...sources, ...pending];
   await saveWindows(planId, parseWindows(texts), 'parser', 'queued');
 }
 

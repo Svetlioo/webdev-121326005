@@ -148,14 +148,18 @@ describe('my plan', () => {
     await addSource(ana, id, { text: WORK }); // instructions are not photos
   });
 
-  test('removing an instruction says so in the chat, so the model does not bring it back; the parser also reads the chat', async () => {
+  test('the parser reads a message the model has not answered yet; an instruction removed with × is gone, and the chat says so', async () => {
     const id = await newPlan();
-    await addSource(ana, id, { text: 'В събота не мога' });
-    await removeSource(ana, id, 1);
-    await sendMessage(ana, id, 'Във вторник работя до 12');
+    await sendMessage(ana, id, 'В събота не мога');
+    expect((await getPlan(ana, id, 3)).plan.windows).toEqual([{ day: 6, from: '07:30', to: '21:30', what: 'зает' }]);
+    // The model keeps it as an instruction and answers.
+    const m = model(async () => ({ reply: 'Разбрах.', instructions: ['В събота не мога.'], windows: [{ day: 6, from: '07:30', to: '21:30', what: 'зает' }] }));
+    await processNextPlan(m);
+    const saved = db.sources.find((s) => s.planId === id)!;
+    await removeSource(ana, id, saved.id);
     const view = await getPlan(ana, id, 3);
-    expect(view.messages.map((m) => m.content)).toEqual(['Махнах „В събота не мога“', 'Във вторник работя до 12']);
-    expect(view.plan.windows).toEqual([{ day: 2, from: '07:30', to: '12:00', what: 'работа' }]);
+    expect(view.plan.windows).toEqual([]); // the old message is not read again
+    expect(view.messages.map((x) => x.content)).toEqual(['В събота не мога', 'Разбрах.', 'Махнах „В събота не мога.“']);
   });
 
   test('a skipped class has no label', async () => {
