@@ -114,7 +114,7 @@ export function modelFromEnv(env: Record<string, string | undefined> = process.e
   if (!env.OLLAMA_URL) return noModel;
   return createOllamaClient({
     url: env.OLLAMA_URL,
-    model: env.MODEL_NAME || 'qwen3-vl:4b-instruct',
+    model: env.MODEL_NAME || 'qwen3.8:27b-mlx',
     timeoutMs: Number(env.MODEL_TIMEOUT_MS) || 120_000,
     think: env.MODEL_THINK === 'true',
   });
