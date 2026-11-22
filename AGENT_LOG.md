@@ -41,7 +41,7 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Plan (in steps, each committed): Google sign-in; API tests; FullCalendar week view; my plans (sources, chat, labels, sharing, admin); timetable per plan and roles student/admin; groups, then my group + per-subject choice; chat changes instructions and subjects; Exercise 4 (`/health`, env check, 404, Dockerfile, UI evidence, READINESS)
 - Changed in review: the review agents found a worker overwriting newer changes (now saved only while `processing`), a page cut that dropped the whole timetable when a menu tab said "Списъчен състав", an admin MCP token reaching every plan (now refused), a missing keyboard order in the new-plan form, and stale spec rows
 - Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s (the thinking variant ignores `think: false`; fixed by switching to `qwen3.8:27b-mlx` without thinking, about 20 s, 19/19)
-- Changed by hand: no code. I tested every screen myself and sent back what was wrong: "free rooms" made no sense for a student, the instructions and the chat were two places to write, the import needed both a link and a photo, and the group should not be chosen when a plan is created
+- Changed by hand: I tested every screen myself and changed what was wrong: "free rooms" made no sense for a student, the instructions and the chat were two places to write, the import needed both a link and a photo, and the group should not be chosen when a plan is created
 - A false claim the agent made about the deployment: none so far; the deploy is on 2026-11-24 and I check every claim against the live site
 
 ## 2026-11-21 · Claude Code, model, security fixes, chat UI, runbook
@@ -52,7 +52,7 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Changed in review: the parser read "Вече не работя в петък" as busy all of Friday, counted "до 10. седмица" and "до 20 минути" as times, and kept re-reading old chat messages so × did not remove a busy time; the page stopped polling after 2 minutes while Gemini could still answer; all fixed with tests
 - Went wrong: the worker kept running old code after a change, so the first real test of week notes saved nothing (restarting it fixed it); the model answers `"instructions": []` when nothing changed, which would have wiped the student's instructions (an empty list now means "no change")
 - Not checked: Gemini against the real API (no key yet); the deployed site
-- Changed by hand: no code. From my own testing I asked for: the week arrows not to jump to the top, notes that can be removed and show in the calendar, the uploaded photo to be visible, an import to show it came from a link, a photo and instructions, a link to any page instead of TU Sofia only, groups as any letters and digits, and a 404 instead of "not shared with you"
+- Changed by hand: from my own testing I changed: the week arrows not to jump to the top, notes that can be removed and show in the calendar, the uploaded photo to be visible, an import to show it came from a link, a photo and instructions, a link to any page instead of TU Sofia only, groups as any letters and digits, and a 404 instead of "not shared with you"
 
 ## What the agent did that I did not ask for
 - `test/fakes.ts`, an in-memory data layer so the service tests run without PostgreSQL
