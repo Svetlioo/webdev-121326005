@@ -1,0 +1,16 @@
+# PostgreSQL for local development only. Production uses Neon.
+# These credentials only ever reach a container on your own machine.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: webdev
+      POSTGRES_PASSWORD: webdev
+      POSTGRES_DB: webdev
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
