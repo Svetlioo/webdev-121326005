@@ -24,6 +24,7 @@ import {
   processNextImport,
   publishImport,
   removeDraftClass,
+  saveDraftClass,
   retryImport,
   startImport,
   TIMEOUT_MESSAGE,
@@ -173,6 +174,25 @@ describe('review', () => {
       expect(problems(name), name).toEqual([]);
     for (const name of ['2222', '22а22', 'гр. 222', '222-а', '222 а', 'КомпютърниСистеми'])
       expect(problems(name), name).toHaveLength(1);
+  });
+
+  test('AC-26 the owner adds a class to the draft and changes one; a class that breaks a rule is refused with the reason', async () => {
+    vi.mocked(findImport).mockResolvedValue(anImport({ draft: [good] }));
+    const added = { course: 'КЗ', type: 'lab', day: 6, startsAt: '10:30', endsAt: '13:15', room: 'Зала 1211', startWeek: 4, groups: [{ name: '222', parity: 'even' }] };
+    await saveDraftClass(ana, 1, null, added);
+    expect(updateImport).toHaveBeenLastCalledWith(1, 'ready', { draft: [good, { ...added, room: '1211' }] });
+    vi.mocked(findImport).mockResolvedValue(anImport({ draft: [good, good] }));
+    await saveDraftClass(ana, 1, 0, { ...good, room: '706' });
+    expect(updateImport).toHaveBeenLastCalledWith(1, 'ready', { draft: [{ ...good, room: '706' }, good] });
+    vi.mocked(updateImport).mockClear();
+    await expect(saveDraftClass(ana, 1, null, { ...good, startsAt: '08:00' })).rejects.toMatchObject({ status: 400, message: expect.stringContaining('08:00') });
+    await expect(saveDraftClass(ana, 1, null, null)).rejects.toMatchObject({ status: 400 });
+    await expect(saveDraftClass(ana, 1, 5, good)).rejects.toMatchObject({ status: 404 });
+    await expect(saveDraftClass(ana, 1, 1.5, good)).rejects.toMatchObject({ status: 404 });
+    await expect(saveDraftClass(vera, 1, null, good)).rejects.toMatchObject({ status: 404 });
+    vi.mocked(findImport).mockResolvedValue(anImport({ status: 'published' }));
+    await expect(saveDraftClass(ana, 1, null, good)).rejects.toMatchObject({ status: 400 });
+    expect(updateImport).not.toHaveBeenCalled();
   });
 
   test('every field of a class is checked', async () => {

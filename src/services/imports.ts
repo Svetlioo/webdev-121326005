@@ -1,4 +1,5 @@
 import { lookup } from 'node:dns/promises';
+import { PERIOD_ENDS, PERIOD_STARTS } from './periods';
 import { isIP } from 'node:net';
 import type { Actor } from '../auth';
 import {
@@ -22,16 +23,10 @@ export const TIMEOUT_MESSAGE = 'Моделът не отговори навре�
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-/** The 14 TU Sofia periods of 45 minutes; a class starts at one and ends at one. */
-const PERIODS = [
-  ['07:30', '08:15'], ['08:30', '09:15'], ['09:30', '10:15'], ['10:30', '11:15'], ['11:30', '12:15'],
-  ['12:30', '13:15'], ['13:45', '14:30'], ['14:45', '15:30'], ['15:45', '16:30'], ['16:45', '17:30'],
-  ['17:45', '18:30'], ['18:45', '19:30'], ['19:45', '20:30'], ['20:45', '21:30'],
-];
-const STARTS = PERIODS.map((p) => p[0]);
+const STARTS = PERIOD_STARTS;
 /** A group name: letters and digits only, at most 10 characters and at most 3 digits, such as 222, 221а, КСИ1 or А. */
 const isGroupName = (name: string) => /^[0-9a-zа-яѝ]{1,10}$/i.test(name) && (name.match(/\d/g) ?? []).length <= 3;
-const ENDS = PERIODS.map((p) => p[1]);
+const ENDS = PERIOD_ENDS;
 
 export type CheckedClass = DraftClass & { problems: string[] };
 export type ImportForReview = Omit<Import, 'draft'> & { draft: CheckedClass[]; canPublish: boolean };
@@ -128,6 +123,20 @@ async function loadReady(actor: Actor | null, id: number): Promise<Import & { dr
 }
 
 /** Removes one class from the draft, for instance one the model read wrong. */
+/**
+ * Adds a class to a draft under review (index null) or replaces the class at index, as typed in the review
+ * form. The same rules as a class the model read: a class that breaks one is refused with the reason.
+ */
+export async function saveDraftClass(actor: Actor | null, id: number, index: number | null, input: unknown): Promise<void> {
+  const found = await loadReady(actor, id);
+  if (index !== null && (!Number.isInteger(index) || index < 0 || index >= found.draft.length)) throw new AppError(404, 'Занятието не е намерено.');
+  const [cls] = toDraft([input]);
+  const problems = checkDraftClass(cls);
+  if (problems.length > 0) throw new AppError(400, problems.join(' '));
+  const draft = index === null ? [...found.draft, cls] : found.draft.map((c, i) => (i === index ? cls : c));
+  await updateImport(id, 'ready', { draft });
+}
+
 export async function removeDraftClass(actor: Actor | null, id: number, index: number): Promise<void> {
   const found = await loadReady(actor, id);
   if (!Number.isInteger(index) || index < 0 || index >= found.draft.length) throw new AppError(404, 'Занятието не е намерено.');
