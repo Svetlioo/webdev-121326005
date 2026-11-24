@@ -5,6 +5,7 @@ import { ActionButton } from '@/app/client-actions';
 import { getActor } from '@/app/session';
 import { AppError } from '@/src/services/errors';
 import { getImport } from '@/src/services/imports';
+import { ClassForm, type FormClass } from './class-form';
 
 const DAYS = ['', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб'];
 const TYPES: Record<string, string> = { lecture: 'лекция', seminar: 'семинар', lab: 'упражнение' };
@@ -30,7 +31,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
       <h1 className="text-2xl font-semibold tracking-tight">Преглед на внасяне № {found.id}</h1>
       <p className="text-sm text-muted-foreground">
         {found.draft.length} занятия{invalid > 0 && `, ${invalid} невалидни: поправете или премахнете ги, за да публикувате`}.
-        Програмата не се променя преди „Публикувай“; тогава това разписание замества сегашното ѝ.
+        Може да промените, добавите или махнете занятие. Програмата не се променя преди „Публикувай“; тогава това разписание замества сегашното ѝ.
       </p>
       <div className="grid gap-2 rounded-lg border bg-background p-4 text-sm">
         <p className="font-medium">Прочетено от</p>
@@ -69,13 +70,17 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
               ))}
             </div>
             {found.status === 'ready' && (
-              <ActionButton url={`/api/imports/${found.id}/classes/${index}`} method="DELETE" label="Премахни" variant="ghost" />
+              <div className="flex shrink-0 gap-1">
+                <ClassForm importId={found.id} index={index} initial={{ course: c.course, type: c.type, day: c.day, startsAt: c.startsAt, endsAt: c.endsAt, room: c.room, startWeek: c.startWeek, groups: c.groups } as FormClass} />
+                <ActionButton url={`/api/imports/${found.id}/classes/${index}`} method="DELETE" label="Премахни" variant="ghost" />
+              </div>
             )}
           </li>
         ))}
       </ul>
       {found.status === 'ready' && (
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ClassForm importId={found.id} />
           <ActionButton url={`/api/imports/${found.id}/publish`} method="POST" label="Публикувай" disabled={!found.canPublish} />
         </div>
       )}
