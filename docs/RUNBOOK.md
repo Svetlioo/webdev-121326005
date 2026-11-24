@@ -216,6 +216,18 @@ claude mcp add tu-programa --scope local -- npm --prefix "$PWD" run --silent mcp
 claude mcp list                   # tu-programa: ✔ Connected
 ```
 
+**С живия сайт** (за демото): MCP сървърът се пуска на лаптопа, но чете живата база от `.env.live` и токен на
+**студент** от живия сайт (админ токен се отказва). Паролата се пита скрито и не се записва; в `.env.live` отива само токенът.
+
+```bash
+npm run mcp:token:live    # пита имейл и парола на студент от живия сайт → MCP_TOKEN в .env.live
+claude mcp remove tu-programa -s local
+claude mcp add tu-programa --scope local -- npm --prefix "$PWD" run --silent mcp:live
+claude mcp list           # tu-programa: ✔ Connected
+```
+После в Claude Code `/mcp` → `tu-programa` → **Reconnect** и питай, например „Какво имам в 3. седмица на програма 2?“
+(№ на програмата е в адреса ѝ: `…onrender.com/plans/2`).
+
 **Демо в Claude Code** (нова сесия `claude` в папката на проекта, или `/mcp` → `tu-programa` → Reconnect в текущата;
 сайтът и базата трябва да работят). Програма 28 „Зимен семестър“ на `student@test.bg`, група 222:
 
