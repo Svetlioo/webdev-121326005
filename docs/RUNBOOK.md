@@ -40,7 +40,7 @@ flowchart LR
   SV --> D[Данни<br/>src/data, само SQL]
   D --> DB[(PostgreSQL<br/>Docker / Neon)]
   W -->|localhost:11434| O[Ollama<br/>qwen3.8:27b-mlx]
-  G -->|HTTPS| GE[Google Gemini API<br/>gemini-2.5-flash]
+  G -->|HTTPS| GE[Google Gemini API<br/>gemini-3.8-flash]
   W -->|fetch| F[всяка публична страница<br/>с разписание]
 ```
 
@@ -167,7 +167,7 @@ erDiagram
 
 | | Основен | Резерв |
 | --- | --- | --- |
-| Модел | **Qwen3.8-27B** (`qwen3.8:27b-mlx`) през Ollama на лаптопа | **Gemini 2.5 Flash** (`gemini-2.5-flash`) |
+| Модел | **Qwen3.8-27B** (`qwen3.8:27b-mlx`) през Ollama на лаптопа | **Gemini 3.8 Flash** (`gemini-3.8-flash`) |
 | Къде | `http://localhost:11434`, нищо не излиза от лаптопа | Google API; данните отиват при Google (страницата го казва) |
 | Кога отговаря | веднага щом има задача | само задача, чакала **30 s** (лаптопът е изключен или зает), и само ако има `GEMINI_API_KEY` |
 | „Effort“ | **без мислене** (`think: false`, `MODEL_THINK=false`): ~20 s за цялата страница на факултета, 19/19 верни занятия; чатът ~6–9 s | `temperature: 0` |
@@ -268,6 +268,14 @@ worker (`instrumentation.ts`). За да видиш как Gemini поема: с
 | сайтът | `Ctrl+C` на `npm run dev` |
 | базата | `docker compose stop db` (данните остават) |
 | проверка, че нищо не върви | `ollama ps` (празно), `lsof -i :3000` (празно) |
+
+**Моделът на лаптопа за живия сайт** (worker-ът се свързва с базата в Neon от `.env.live`, който git не взима):
+
+```bash
+npm run live:start    # пуска Ollama и worker-а във фона
+npm run live:status   # дали работят и последните редове от лога
+npm run live:stop     # спира worker-а и Ollama (без вентилатори)
+```
 
 **След промяна в кода** рестартирай worker-а: той не се презарежда сам, за разлика от `npm run dev`.
 

@@ -27,3 +27,5 @@ next-env.d.ts
 
 # browser automation output
 .playwright-mcp/
+.live-worker.pid
+.live-worker.log

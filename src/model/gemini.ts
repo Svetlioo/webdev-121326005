@@ -74,7 +74,7 @@ export function geminiFromEnv(env: Record<string, string | undefined> = process.
   if (!env.GEMINI_API_KEY) return null;
   return createGeminiClient({
     apiKey: env.GEMINI_API_KEY,
-    model: env.GEMINI_MODEL || 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL || 'gemini-3.8-flash',
     timeoutMs: Number(env.MODEL_TIMEOUT_MS) || 120_000,
   });
 }
