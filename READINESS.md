@@ -4,8 +4,8 @@ What is true about the deployed app, how I checked each claim, and what is still
 
 ## Live URL
 
-- URL: `<fill in after the Render deploy>` (also in `course.json` as `liveUrl`).
-- How to verify: `curl -i <url>/health` answers `200 {"status":"ok","db":"ok"}`; opening `<url>` redirects to `/signin`; sign up, create a plan from the sample timetable, choose group 222 and see the week calendar.
+- URL: https://tu-programa.onrender.com (also in `course.json` as `liveUrl`). Render, Docker, Frankfurt, free plan; database on Neon (Frankfurt).
+- How to verify: `curl -i https://tu-programa.onrender.com/health` answers `200 {"status":"ok","db":"ok"}`; opening https://tu-programa.onrender.com redirects to `/signin`; sign up, create a plan from the sample timetable, choose group 222 and see the week calendar.
 - How I checked: locally, the Docker image (`docker build -t webdev-check .`, run with the three required variables) answered `/health` with 200 and served the sign-in page. The same check on Render is to be done after the deploy.
 
 ## Environment variables
