@@ -53,7 +53,7 @@ const good: DraftClass = {
   groups: [{ name: '222', parity: 'odd' }],
 };
 const anImport = (fields: Partial<Import> = {}): Import => ({
-  id: 1, planId: 1, status: 'ready', sourceUrl: null, hasImage: true, instructions: '', draft: [good], error: null, createdAt: '', ...fields,
+  id: 1, planId: 1, status: 'ready', sourceUrl: null, hasImage: true, instructions: '', draft: [good], error: null, createdAt: '', updatedAt: '', ...fields,
 });
 const fakeModel = (answer: () => Promise<unknown>): ModelClient => ({ readSchedule: vi.fn(answer), readPlan: vi.fn() });
 const job = { id: 1, planId: 1, sourceUrl: null, image: photo, imageType: 'image/png', instructions: '' };
@@ -209,6 +209,13 @@ describe('review', () => {
     expect(updateImport).toHaveBeenCalledWith(1, 'queued');
     vi.mocked(findImport).mockResolvedValue(anImport({ status: 'ready' }));
     await expect(retryImport(ana, 1)).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('a failed import is not retried while another import of the plan is still being read (409)', async () => {
+    vi.mocked(findImport).mockResolvedValue(anImport({ status: 'failed' }));
+    vi.mocked(listImportRows).mockResolvedValue([anImport({ id: 2, status: 'processing' })]);
+    await expect(retryImport(ana, 1)).rejects.toMatchObject({ status: 409 });
+    expect(updateImport).not.toHaveBeenCalled();
   });
 
   test('the owner lists the imports of the plan', async () => {

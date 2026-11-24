@@ -113,7 +113,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                             {i.instructions && <span className="min-w-0 basis-full text-xs text-muted-foreground">Указания: {i.instructions}</span>}
                           </span>
                           {i.error && <span className="text-xs text-destructive">{i.error}</span>}
-                          {i.status === 'queued' && longAgo(i.createdAt) && (
+                          {i.status === 'queued' && longAgo(i.updatedAt) && (
                             <span className="text-xs text-muted-foreground">Моделът е изключен в момента; внасянето ще продължи, когато се включи.</span>
                           )}
                           {i.status === 'ready' && (
@@ -121,7 +121,7 @@ export default async function PlanPage({ params, searchParams }: Props) {
                               Прегледай и публикувай
                             </Link>
                           )}
-                          {i.status === 'failed' && <ActionButton url={`/api/imports/${i.id}/retry`} method="POST" label="Опитай отново" variant="outline" />}
+                          {i.status === 'failed' && !importing && <ActionButton url={`/api/imports/${i.id}/retry`} method="POST" label="Опитай отново" variant="outline" />}
                         </li>
                       ))}
                     </ul>

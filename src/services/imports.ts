@@ -146,7 +146,12 @@ export async function publishImport(actor: Actor | null, id: number): Promise<vo
 
 /** Puts a failed import back in the queue. */
 export async function retryImport(actor: Actor | null, id: number): Promise<void> {
-  if ((await loadImport(actor, id)).status !== 'failed') throw new AppError(400, 'Само неуспешно внасяне може да се опита отново.');
+  const found = await loadImport(actor, id);
+  if (found.status !== 'failed') throw new AppError(400, 'Само неуспешно внасяне може да се опита отново.');
+  // Like a new import: one at a time per plan.
+  if ((await listImportRows(found.planId)).some((i) => i.status === 'queued' || i.status === 'processing')) {
+    throw new AppError(409, 'Друго внасяне още се обработва. Изчакайте го.');
+  }
   await updateImport(id, 'queued');
 }
 
