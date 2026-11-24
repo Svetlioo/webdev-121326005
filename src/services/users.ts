@@ -1,5 +1,5 @@
 import type { Actor } from '../auth';
-import { listUsers as listUserRows, setRoleById, type Role, type UserRow } from '../data/users';
+import { hasGoogleAccount, listUsers as listUserRows, setRoleById, type Role, type UserRow } from '../data/users';
 import { AppError, requireActor } from './errors';
 
 const ROLES: Role[] = ['student', 'admin'];
@@ -7,6 +7,11 @@ const ROLES: Role[] = ['student', 'admin'];
 function requireAdmin(actor: Actor | null): Actor {
   if (requireActor(actor).role !== 'admin') throw new AppError(403, 'Само администратор може да променя роли.');
   return actor as Actor;
+}
+
+/** Whether the signed-in user already signs in with Google too, so the header hides "Свържи Google". */
+export async function isGoogleLinked(actor: Actor | null): Promise<boolean> {
+  return hasGoogleAccount(requireActor(actor).id);
 }
 
 export async function listUsers(actor: Actor | null): Promise<UserRow[]> {

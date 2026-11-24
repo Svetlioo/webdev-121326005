@@ -23,3 +23,9 @@ export async function findUserIdByEmail(email: string): Promise<string | null> {
   const { rows } = await db().query('SELECT id FROM "user" WHERE email = $1', [email.trim().toLowerCase()]);
   return rows[0]?.id ?? null;
 }
+
+/** Whether the user has a Google account linked (Better Auth's account table). */
+export async function hasGoogleAccount(userId: string): Promise<boolean> {
+  const { rows } = await db().query(`SELECT 1 FROM account WHERE "userId" = $1 AND "providerId" = 'google' LIMIT 1`, [userId]);
+  return rows.length > 0;
+}
