@@ -13,6 +13,9 @@
     "db:setup": "tsx --env-file-if-exists=.env db/setup.ts",
     "mcp": "tsx --env-file-if-exists=.env mcp-server/server.ts",
     "worker": "tsx --env-file-if-exists=.env src/worker/index.ts",
+    "live:start": "sh scripts/live-worker.sh start",
+    "live:stop": "sh scripts/live-worker.sh stop",
+    "live:status": "sh scripts/live-worker.sh status",
     "make-admin": "tsx --env-file-if-exists=.env scripts/make-admin.ts"
   },
   "repository": {

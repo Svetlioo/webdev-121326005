@@ -18,7 +18,7 @@ What is true about the deployed app, how I checked each claim, and what is still
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | Render, `.env` | Google sign-in; without them the button says it is not set up |
 | `OLLAMA_URL` | no | only the laptop's `.env`; **empty on Render** | the local model; empty means "no model" |
 | `MODEL_NAME`, `MODEL_TIMEOUT_MS`, `MODEL_THINK` | no | the laptop | which model, its timeout, whether it reasons first |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | no | Render only | the backup model (Gemini 2.5 Flash) when the laptop is off |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | no | Render only | the backup model (Gemini 3.8 Flash) when the laptop is off |
 | `MCP_TOKEN` | no | the laptop | a student's session token for the MCP server |
 
 - How I checked: `instrumentation.ts` calls `checkEnv` from `src/env.ts` at start; running the image with only `DATABASE_URL` stops with "Missing environment variables: BETTER_AUTH_SECRET, BETTER_AUTH_URL". `.env` is in `.gitignore`; `git log --all -- .env` is empty.
@@ -62,7 +62,7 @@ The plan page (`app/plans/[id]/page.tsx`): loading (`app/plans/loading.tsx` skel
 ## The model feature in production
 
 - Data that leaves the app: for a job the laptop answers, none: the worker reads jobs from Neon and calls Ollama on `localhost`. When the laptop is off or busy, the website's backup worker sends a job that has waited 30 s to Google's Gemini API: the timetable text or photo, and for a plan the personal instructions, photos and chat. On the free tier Google may use that data to improve its products; the plan page tells the student.
-- Cost: $0 per call with the local model. Gemini 2.5 Flash on the free tier is $0 within its daily limits (a 429 marks the job failed); on the paid tier one import (about 1,700 input and 2,000 output tokens) is well under one cent at Google's list price. One import of the faculty page is about 1,700 prompt tokens and 2,000 output tokens, about 20 s on the laptop with `qwen3.8:27b-mlx`.
+- Cost: $0 per call with the local model. Gemini 3.8 Flash on the free tier is $0 within its daily limits (a 429 marks the job failed); on the paid tier one import (about 1,700 input and 2,000 output tokens) is well under one cent at Google's list price. One import of the faculty page is about 1,700 prompt tokens and 2,000 output tokens, about 20 s on the laptop with `qwen3.8:27b-mlx`.
 - When it is down or slow: 120 s timeout per call, the job is `failed` with a readable reason, the parser fallback keeps the labels working, and the page says when the model is off. Answers are checked against a JSON schema and real data before they are saved.
 - How I checked: tests with a fake client (good answer, nonsense answer, timeout, no model) and a real import of https://cs.fcst.bg/page.php?id=89 with `qwen3.8:27b-mlx`, compared class by class with the sample timetable (19/19 fully right in 20 s).
 

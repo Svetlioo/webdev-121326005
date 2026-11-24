@@ -13,7 +13,7 @@ See `SPEC.md` for goals, non-goals and acceptance criteria.
 - Run: `npm run db:up && npm run db:setup && npm run dev`, then open http://localhost:3000 (PostgreSQL in Docker on port 5433)
 - Google sign-in (optional locally): create an OAuth client (Web application) at console.cloud.google.com, add the redirect URI `http://localhost:3000/api/auth/callback/google` (and the Render one later), and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. Without them the app works and "Вход с Google" says it is not set up.
 - Make the first admin: `npm run make-admin -- someone@example.com`; after that an admin gives roles on /admin/users
-- Import worker (on the laptop, next to Ollama): `npm run worker`
+- Import worker (on the laptop, next to Ollama): `npm run worker`; for the live site `npm run live:start` / `live:stop` / `live:status` (reads the live DATABASE_URL from `.env.live`, never committed)
 - Test: `npm test`
 - Coverage: `npm run coverage`
 - MCP server: `npm run mcp`
@@ -58,7 +58,7 @@ that talks to the database directly is a second, unguarded way into your data: n
 ## The model feature
 <!-- Provider, env var, and the call site. -->
 - The providers are named in two files only: `src/model/ollama.ts` (local, on the laptop) and `src/model/gemini.ts` (the hosted backup). Everything else depends on the `ModelClient` interface in `src/model/client.ts`; the prompts are in `src/model/prompts.ts`.
-- The model is local (Ollama, `qwen3.8:27b-mlx`, no key), configured by `OLLAMA_URL`, `MODEL_NAME`, `MODEL_TIMEOUT_MS` and `MODEL_THINK`; the laptop's worker (`npm run worker`) uses it. With `GEMINI_API_KEY` set (on Render), the website runs a backup worker with Gemini (`GEMINI_MODEL`, default `gemini-2.5-flash`) that answers only jobs that waited 30 s. Sending data to Gemini is the user-approved exception to "no third-party model".
+- The model is local (Ollama, `qwen3.8:27b-mlx`, no key), configured by `OLLAMA_URL`, `MODEL_NAME`, `MODEL_TIMEOUT_MS` and `MODEL_THINK`; the laptop's worker (`npm run worker`) uses it. With `GEMINI_API_KEY` set (on Render), the website runs a backup worker with Gemini (`GEMINI_MODEL`, default `gemini-3.8-flash`) that answers only jobs that waited 30 s. Sending data to Gemini is the user-approved exception to "no third-party model".
 - Every call has a timeout and a deterministic fallback, so the app still works when the provider is down or rate-limited.
 - The model's output is re-checked against real data before anything is saved or shown.
 - Model calls (imports and plans) run only in the worker (`src/worker/`), never inside an HTTP request.

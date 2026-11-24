@@ -25,13 +25,15 @@ export type Import = {
   draft: DraftClass[] | null;
   error: string | null;
   createdAt: string;
+  /** When the status last changed: for a queued import, since when it has been waiting. */
+  updatedAt: string;
 };
 
 /** A queued import as the worker needs it, with the photo. */
 export type ImportJob = { id: number; planId: number; sourceUrl: string | null; image: Buffer | null; imageType: string | null; instructions: string };
 
 const COLUMNS = `id::int AS id, plan_id::int AS "planId", status, source_url AS "sourceUrl", image IS NOT NULL AS "hasImage", instructions,
-  draft, error, created_at AS "createdAt"`;
+  draft, error, created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 export type NewImport = { sourceUrl: string | null; image: Buffer | null; imageType: string | null; instructions: string };
 

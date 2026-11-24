@@ -5,7 +5,7 @@ import { createGeminiClient, geminiFromEnv } from '../../src/model/gemini';
 // A fake fetch stands in for Google: tests never call Gemini.
 const answer = (text: string, status = 200) =>
   vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status })) as unknown as typeof fetch;
-const client = (fetchImpl: typeof globalThis.fetch) => createGeminiClient({ apiKey: 'test-key', model: 'gemini-2.5-flash', timeoutMs: 1000, fetch: fetchImpl });
+const client = (fetchImpl: typeof globalThis.fetch) => createGeminiClient({ apiKey: 'test-key', model: 'gemini-3.8-flash', timeoutMs: 1000, fetch: fetchImpl });
 const plan = { instructions: ['Работя от 9:00 до 16:30'], images: [{ data: Buffer.from('png'), type: 'image/png' }], messages: [{ role: 'user' as const, content: 'и в събота' }, { role: 'assistant' as const, content: 'добре' }], myGroup: '222', subjects: [] };
 
 describe('the Gemini client', () => {
@@ -13,7 +13,7 @@ describe('the Gemini client', () => {
     const fetchMock = answer('```json\n{"classes": []}\n```');
     expect(await client(fetchMock).readSchedule({ text: 'ПИ л.у. 1211', instructions: '' })).toEqual({ classes: [] });
     const [url, init] = vi.mocked(fetchMock).mock.calls[0];
-    expect(String(url)).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
+    expect(String(url)).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     expect(init!.headers).toMatchObject({ 'x-goog-api-key': 'test-key' });
     const body = JSON.parse(String(init!.body));
     expect(body.systemInstruction.parts[0].text).toContain('"required":["classes"]');
@@ -44,7 +44,7 @@ describe('the Gemini client', () => {
     await expect(client(empty).readPlan(plan)).rejects.toBeInstanceOf(ModelOutputError);
   });
 
-  test('without GEMINI_API_KEY there is no backup; with it, Gemini 2.5 Flash by default', () => {
+  test('without GEMINI_API_KEY there is no backup; with it, Gemini 3.8 Flash by default', () => {
     expect(geminiFromEnv({})).toBeNull();
     expect(geminiFromEnv({ GEMINI_API_KEY: 'k' })).toHaveProperty('readPlan');
   });
