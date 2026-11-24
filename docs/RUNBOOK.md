@@ -332,8 +332,8 @@ npm run live:stop     # спира worker-а и Ollama (след демото, �
 | 16 | Админ | като `admin@test.bg`: вижда всички програми; „Потребители“ → смяна на роля | AC-20, AC-21 |
 | 17 | AI изключен | спри worker-а, пиши в чата → „Приблизително, без AI“, след 2 мин „AI е изключен в момента“ | fallback |
 | 18 | Телефон | DevTools → 380 px → списък вместо календар, бутони 44 px | docs/UI.md |
-| 19 | MCP | раздел 4 | AC-14 |
-| 20 | Здраве | `curl localhost:3000/health` → `{"status":"ok","db":"ok"}`; `docker compose stop db` → 503 | Упражнение 4 |
+| 19 | MCP | в Claude Code: `/mcp` → `tu-programa` (свързан с живия сайт) → **Reconnect** → питай „Какво имам в 3. седмица на програма 2?“, „Кога и в коя зала е КЗ упражнението в програма 2?“, „Покажи 3. седмица на програма 1“ (чужда → „не е намерена“). Настройката е в раздел 4 | AC-14 |
+| 20 | Здраве | `curl https://tu-programa.onrender.com/health` → `{"status":"ok","db":"ok"}` (локално `curl localhost:3000/health`; `docker compose stop db` → 503) | Упражнение 4 |
 
 ---
 
