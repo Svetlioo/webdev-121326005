@@ -1,13 +1,24 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { listUsers as listUserRows, setRoleById } from '../../src/data/users';
-import { listUsers, setUserRole } from '../../src/services/users';
+import { hasGoogleAccount, listUsers as listUserRows, setRoleById } from '../../src/data/users';
+import { isGoogleLinked, listUsers, setUserRole } from '../../src/services/users';
 
-vi.mock('../../src/data/users', () => ({ listUsers: vi.fn(), setRoleById: vi.fn() }));
+vi.mock('../../src/data/users', () => ({ listUsers: vi.fn(), setRoleById: vi.fn(), hasGoogleAccount: vi.fn() }));
 
 const admin = { id: 'a1', role: 'admin' };
 const student = { id: 's1', role: 'student' };
 
 beforeEach(() => vi.resetAllMocks());
+
+describe('Google link', () => {
+  test('the header knows whether my account already has Google; nobody signed in gets 401', async () => {
+    vi.mocked(hasGoogleAccount).mockResolvedValue(true);
+    expect(await isGoogleLinked(student)).toBe(true);
+    expect(hasGoogleAccount).toHaveBeenCalledWith('s1');
+    vi.mocked(hasGoogleAccount).mockResolvedValue(false);
+    expect(await isGoogleLinked(student)).toBe(false);
+    await expect(isGoogleLinked(null)).rejects.toMatchObject({ status: 401 });
+  });
+});
 
 describe('roles', () => {
   test('AC-21 an admin makes a student an admin; a student who tries gets 403 and the role stays', async () => {

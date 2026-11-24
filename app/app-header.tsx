@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import type { Actor } from '@/src/auth';
 import { SignOutButton } from './buttons';
+import { isGoogleLinked } from '@/src/services/users';
 import { LinkGoogleButton } from './link-google';
 
 type Page = 'plans' | 'users';
 
 /** The same menu on every page; the Users link is only for admins (the service refuses others anyway). */
-export function AppHeader({ actor, current }: { actor: Actor; current: Page }) {
+export async function AppHeader({ actor, current }: { actor: Actor; current: Page }) {
+  const googleLinked = await isGoogleLinked(actor);
   const links: [Page, string, string][] = [['plans', '/plans', 'Моите програми']];
   if (actor.role === 'admin') links.push(['users', '/admin/users', 'Потребители']);
 
@@ -30,7 +32,7 @@ export function AppHeader({ actor, current }: { actor: Actor; current: Page }) {
           {actor.role === 'admin' && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs">администратор</span>}
         </nav>
         <div className="flex items-center gap-1">
-          <LinkGoogleButton />
+          {!googleLinked && <LinkGoogleButton />}
           <SignOutButton />
         </div>
       </div>
