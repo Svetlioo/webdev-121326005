@@ -42,7 +42,7 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Changed in review: the review agents found a worker overwriting newer changes (now saved only while `processing`), a page cut that dropped the whole timetable when a menu tab said "Списъчен състав", an admin MCP token reaching every plan (now refused), a missing keyboard order in the new-plan form, and stale spec rows
 - Went wrong: the worker crashed on top-level await (CommonJS); the first real import read only one class (the page cut); the 4B model needs about 3 minutes for the faculty page and times out at 120 s (the thinking variant ignores `think: false`; fixed by switching to `qwen3.8:27b-mlx` without thinking, about 20 s, 19/19)
 - Changed by hand: I tested every screen myself and changed what was wrong: "free rooms" made no sense for a student, the instructions and the chat were two places to write, the import needed both a link and a photo, and the group should not be chosen when a plan is created
-- A false claim the agent made about the deployment: none so far; the deploy is on 2026-11-24 and I check every claim against the live site
+- A false claim the agent made about the deployment: it said a free Gemini key works with `gemini-2.5-flash`. On the live site the first import failed with "Моделът не е достъпен"; a direct call showed Google answers 404 for that model to new keys. The default is now `gemini-3.8-flash`, which Google listed for the key (at that moment it answered 503 "high demand", so the laptop's model read the import instead)
 
 ## 2026-11-21 · Claude Code, model, security fixes, chat UI, runbook
 - Goal: make the model usable in the demo (at most a minute), a backup when the laptop is off, Exercise 5's security fixes, and an interface a student understands without help
@@ -53,6 +53,12 @@ One entry per agent session, newest at the bottom. Be honest: what went wrong is
 - Went wrong: the worker kept running old code after a change, so the first real test of week notes saved nothing (restarting it fixed it); the model answers `"instructions": []` when nothing changed, which would have wiped the student's instructions (an empty list now means "no change")
 - Not checked: Gemini against the real API (no key yet); the deployed site
 - Changed by hand: from my own testing I changed: the week arrows not to jump to the top, notes that can be removed and show in the calendar, the uploaded photo to be visible, an import to show it came from a link, a photo and instructions, a link to any page instead of TU Sofia only, groups as any letters and digits, and a 404 instead of "not shared with you"
+
+## 2026-11-24 – 2026-11-25 · Claude Code, deploy to Render and Neon
+- Goal: the live site, the keys, and the Exercise 4 evidence
+- Done: merged the project, Neon database (Frankfurt) with the six migrations, Render web service (Docker, Frankfurt, free), Gemini and Google keys, live URL in `course.json`, me as admin, the live checks (200/400/401/403/404, 503, rollback)
+- Changed on the way: the "Свържи Google" button now hides when the account already has Google; a failed import cannot be retried while another one is being read; on the review screen a class can be changed or added by hand; `npm run live:start` / `live:stop` run the laptop's model for the live site
+- Went wrong: the first deploy stopped because `BETTER_AUTH_SECRET` was missing (the start-up check named it); Gemini 2.5 Flash is gone for new keys (see the false claim above); the Neon connection string was pasted without quotes once, so the shell cut it at "&"
 
 ## What the agent did that I did not ask for
 - `test/fakes.ts`, an in-memory data layer so the service tests run without PostgreSQL
