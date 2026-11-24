@@ -12,6 +12,8 @@
     "db:up": "docker compose up -d db",
     "db:setup": "tsx --env-file-if-exists=.env db/setup.ts",
     "mcp": "tsx --env-file-if-exists=.env mcp-server/server.ts",
+    "mcp:live": "tsx --env-file-if-exists=.env --env-file=.env.live mcp-server/server.ts",
+    "mcp:token:live": "sh scripts/mcp-token-live.sh",
     "worker": "tsx --env-file-if-exists=.env src/worker/index.ts",
     "live:start": "sh scripts/live-worker.sh start",
     "live:stop": "sh scripts/live-worker.sh stop",
