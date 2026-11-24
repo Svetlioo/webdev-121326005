@@ -6,7 +6,17 @@ What is true about the deployed app, how I checked each claim, and what is still
 
 - URL: https://tu-programa.onrender.com (also in `course.json` as `liveUrl`). Render, Docker, Frankfurt, free plan; database on Neon (Frankfurt).
 - How to verify: `curl -i https://tu-programa.onrender.com/health` answers `200 {"status":"ok","db":"ok"}`; opening https://tu-programa.onrender.com redirects to `/signin`; sign up, create a plan from the sample timetable, choose group 222 and see the week calendar.
-- How I checked: locally, the Docker image (`docker build -t webdev-check .`, run with the three required variables) answered `/health` with 200 and served the sign-in page. The same check on Render is to be done after the deploy.
+- How I checked (live, 2026-11-25), with `curl` against https://tu-programa.onrender.com and three test accounts (an owner, a reader the plan is shared with, a stranger):
+  - `GET /health` → **200** `{"status":"ok","db":"ok"}`; `node checks/ex4.mjs` → the live URL and `/health` checks pass
+  - `POST /api/plans` with broken JSON → **400** "Името трябва да е между 1 и 100 знака."
+  - `POST /api/plans` signed out → **401** "Влезте в профила си."
+  - `DELETE /api/plans/2` as the stranger → **404** "Програмата не е намерена."
+  - `DELETE /api/plans/2` as the reader → **403** "Само собственикът може да променя тази програма."
+  - the plan is still there afterwards (the owner opens `/plans/2`, 200)
+- Database down on Render: I set a wrong `DATABASE_URL` and redeployed; `/health` answered **503** `{"status":"error","db":"down"}`; I put the right value back and it answered 200 again.
+- Rollback: in Render → Events I rolled back to an earlier live deploy; the site came up with that version and the plans were still there; then "Deploy latest commit" brought the current one back.
+- Data survives redeploys: the plans and the imported timetable stayed through every deploy of the day (five merges, the 503 test and the rollback), because they live in Neon, not in the container.
+- The first deploy did not start: the start-up check named the missing variable ("Missing environment variables: BETTER_AUTH_SECRET"), which I then added.
 
 ## Environment variables
 
