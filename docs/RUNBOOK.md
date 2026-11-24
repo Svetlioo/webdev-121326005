@@ -394,53 +394,40 @@ docker build -t webdev-check .
 
 ---
 
-## 9. Деплой (Render + Neon)
+## 9. Деплой: как е настроено (готово)
 
-1. `git push` → GitHub → Actions: CI трябва да е зелен.
-2. **Neon** (neon.tech): нов проект, регион Frankfurt. Копирай connection string-а и пусни миграциите от лаптопа:
-   ```bash
-   DATABASE_URL='<neon>' npm run db:setup
-   ```
-3. **Gemini:** ключ от aistudio.google.com → само в Render, никога в git.
-4. **Render** (render.com): New → Web Service → репото → Runtime **Docker**, Region **Frankfurt**, Plan **Free**,
-   Health Check Path `/health`, Auto-Deploy „After CI Checks Pass“. Променливи:
-   | Име | Стойност |
-   | --- | --- |
-   | `DATABASE_URL` | connection string-ът от Neon |
-   | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
-   | `BETTER_AUTH_URL` | `https://<името>.onrender.com` |
-   | `GEMINI_API_KEY` | ключът от AI Studio |
-   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | по желание |
-   | `OLLAMA_URL` | **празно** |
-5. `course.json` → `"liveUrl": "https://<името>.onrender.com"` (без `/` накрая); същото в `READINESS.md`.
-6. Google Cloud → OAuth клиента → redirect URI `https://<името>.onrender.com/api/auth/callback/google`.
-7. Регистрирай се на живия сайт и стани админ: `DATABASE_URL='<neon>' npm run make-admin -- твоя@имейл`.
-8. Демо с лаптопа: `ollama serve` и `DATABASE_URL='<neon>' npm run worker`. Worker-ът се свързва директно с Neon,
-   без тунел. Когато лаптопът е изключен, отговаря Gemini.
-9. Доказателства за Упражнение 4: `/health` 200, после 503 с грешен `DATABASE_URL`, rollback към предишен deploy,
-   грешен JSON → 400, запис без вход → 401, читател (споделено само за четене) трие → 403, чужд акаунт → 404,
-   данните оцеляват след redeploy.
+| Какво | Как е |
+| --- | --- |
+| Живият сайт | https://tu-programa.onrender.com (`liveUrl` в `course.json`) |
+| Render | Web Service `tu-programa`: Docker, Frankfurt, Free, Health Check `/health`, деплой при merge в `main` след зелен CI |
+| Neon | проект `tu-programa`, Frankfurt, база `neondb`; миграциите 001–006 са приложени |
+| Променливи в Render | `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (`GEMINI_MODEL` по подразбиране е `gemini-3.8-flash`) |
+| Админ | `svetlio.iliev17@gmail.com` |
+| Моделът на лаптопа за живия сайт | `npm run live:start` / `live:status` / `live:stop` (раздел 6) |
+| Тайните | само в Render и в `.env` / `.env.live` на лаптопа; git ги игнорира (одит на цялата история: нищо) |
+
+**Доказателства за Упражнение 4** (записани в `READINESS.md`): `/health` 200; грешна `DATABASE_URL` → 503; rollback към
+предишен деплой; грешен JSON → 400; запис без вход → 401; читател трие → 403; чужд акаунт → 404; данните оцеляват
+след всеки деплой. Пускат се отново с `node checks/ex4.mjs`.
+
+**Ако трябва да се направи наново:**
+1. Нова база в Neon → `DATABASE_URL='<neon>' npm run db:setup` (адресът в единични кавички).
+2. Render → New → Web Service → репото, Docker, Frankfurt, Free, `/health`, променливите от таблицата
+   (`BETTER_AUTH_SECRET`: `openssl rand -base64 32`; `BETTER_AUTH_URL`: адресът на сайта без `/` накрая).
+3. Регистрация на сайта → `npx tsx --env-file-if-exists=.env --env-file=.env.live scripts/make-admin.ts <имейл>`
+   (с адреса на новата база в `.env.live`).
 
 ---
 
-## 10. Вход с Google (около 5 минути)
+## 10. Вход с Google: как е настроено (готово)
 
-1. https://console.cloud.google.com → горе вляво „Select a project“ → **New project** (напр. `tu-programa`).
-2. Меню → **APIs & Services → OAuth consent screen** (Google Auth Platform):
-   - **Branding**: име на приложението и твоя имейл за поддръжка.
-   - **Audience**: User type **External**, оставаш в **Testing**; в **Test users** добави своя Gmail
-     (и Gmail-ите, с които ще пробваш). В Testing могат да влизат само те, безплатно и без проверка от Google.
-3. **Clients → Create client** → Application type **Web application**:
-   - Authorized JavaScript origins: `http://localhost:3000` (по-късно и `https://<името>.onrender.com`)
-   - Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
-     (по-късно и `https://<името>.onrender.com/api/auth/callback/google`)
-4. Копирай **Client ID** и **Client secret** в `.env`:
-   ```
-   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=...
-   ```
-   и рестартирай `npm run dev`. В Render сложи същите две променливи.
-5. Проба:
-   - „Вход с Google“ с Gmail, който няма профил → нов профил.
-   - „Вход с Google“ с имейла на профил с парола → „Влезте с паролата си и свържете Google от профила“.
-   - Влез с парола → „Свържи Google“ (горе вдясно) → после можеш да влизаш и с Google в същия профил.
+- Google Cloud проект `tu-programa` → Google Auth Platform: приложение „ТУ Програма“, Audience **External**, режим
+  **Testing**: с Google влизат само Gmail-ите в **Test users** (до 100). За всички трябват начална страница и страница за
+  поверителност (Branding), които сайтът няма.
+- OAuth клиент `tu-programa` (Web application). Redirect URI: `https://tu-programa.onrender.com/api/auth/callback/google`
+  (и `http://localhost:3000/api/auth/callback/google` за локално). Client ID и Secret са в Render.
+- Нов тестов потребител: Google Auth Platform → **Audience** → **Test users** → **+ Add users**.
+- Как работи:
+  - „Вход с Google“ с Gmail без профил → нов профил;
+  - „Вход с Google“ с имейла на профил с парола → „Влезте с паролата си и свържете Google от профила“;
+  - влязъл с парола → „Свържи Google“ горе вдясно → оттам нататък влизаш и с Google; бутонът изчезва, щом е свързан.
